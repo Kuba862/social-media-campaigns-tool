@@ -1,0 +1,1 @@
+insert into public.panel_allowed_domains (domain) values ('example.org');
