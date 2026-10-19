@@ -102,6 +102,18 @@ brak klucza Supabase jest błędem.
 Konsekwencje: Temporal Cloud wymaga ustawienia wszystkich trzech zmiennych; testy workflow idą na
 serwerze testowym SDK z przeskakiwaniem czasu, pobieranym przy pierwszym uruchomieniu.
 
+### 10. CI w GitHub Actions na push do mastera i na PR (2026-10-19)
+
+Decyzja: jeden workflow `.github/workflows/ci.yml` z jednym jobem `backend`: `uv sync --locked`,
+`ruff check`, `ruff format --check`, `mypy`, `pytest`, czyli to samo co lokalnie z AGENTS.md.
+Uruchamia się na push do `master` i na każdy pull request; kolejny push na tę samą gałąź anuluje
+poprzedni bieg. Bez sekretów: testy nie dotykają Supabase ani Temporal Cloud.
+Powód: te same cztery komendy w CI i lokalnie oznaczają, że zielone CI znaczy dokładnie to, co
+zielony terminal; `--locked` wyłapuje `uv.lock` niezgodny z `pyproject.toml`.
+Konsekwencje: test workera pobiera serwer testowy SDK na maszynę GitHuba przy każdym biegu
+(ok. 10 s); jeśli zacznie przeszkadzać, dojdzie cache. Wymaganie zielonego checku `backend`
+przed merge to ustawienie gałęzi w GitHubie, które włącza właściciel.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
