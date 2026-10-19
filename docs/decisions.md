@@ -50,6 +50,18 @@ Konsekwencje dla edytora (React Flow w `web/`): edytor musi mapować porty wyjś
 zamiast zapisywać je jako `edges`. Porty `replied` i `timeout` węzła `wait_for_reply` pozostają
 zwykłymi krawędziami z polem `port`.
 
+### 6. Odstępstwa w pierwszej migracji (2026-10-19)
+
+Decyzja: trzy drobne różnice względem tabeli z sekcji 3 instrukcji w
+`supabase/migrations/20261019105537_initial_tables.sql`: `journey_runs.journey_id` jest zdublowane
+z `journey_versions`, `templates.status` ma lokalny stan `DRAFT` przed `PENDING`, a
+`message_events.message_id` dopuszcza null.
+Powód: reguła "jeden aktywny run na (journey, kontakt)" wymaga indeksu częściowego na kolumnach
+tej samej tabeli; szablon utworzony w panelu istnieje, zanim Meta nada mu status; webhook statusu
+może przyjść dla `wamid`, którego nie mamy, a tabela zdarzeń jest append-only i nie powinna go gubić.
+Konsekwencje: API ustawia `journey_id` przy starcie runu na podstawie wersji; `DRAFT` nie jest
+statusem Meta i nie trafia do synchronizacji; zdarzenia bez `message_id` dopasowujemy później po `wamid`.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
