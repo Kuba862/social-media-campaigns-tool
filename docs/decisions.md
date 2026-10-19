@@ -75,9 +75,26 @@ audytowego.
 Konsekwencje: osoba spoza listy po zalogowaniu widzi puste tabele, nie błąd; API tworzy nową wersję
 journey zamiast edytować opublikowaną; zmiana zgody to insert nowego wiersza.
 
+### 8. Weryfikacja tokenu przez Supabase Auth, domena także w API (2026-10-19)
+
+Decyzja: API nie sprawdza podpisu JWT samo. `api/auth.py` wysyła token do
+`GET {SUPABASE_URL}/auth/v1/user` z kluczem service role jako `apikey` i przyjmuje odpowiedź Supabase.
+Dodatkowo API sprawdza domenę e-mail z `PANEL_ALLOWED_EMAIL_DOMAIN` (403), choć sekcja 10 instrukcji
+przypisuje tę zmienną tylko do web.
+Powód: service role omija RLS, więc sama poprawność tokenu nie wystarcza; osoba spoza listy mogłaby
+wywołać API. Lokalny CLI 2.121 i projekty hostowane podpisują tokeny ES256 z JWKS, więc lokalna
+weryfikacja też byłaby jedną ścieżką, ale wymaga pobierania i cache'owania kluczy; pytanie Supabase
+to mniej kodu w PoC.
+Konsekwencje: jedno wywołanie HTTP do Supabase na każde chronione żądanie; brak Supabase to 503,
+nie 500. Lista domen istnieje w dwóch miejscach (tabela `panel_allowed_domains` dla RLS i env dla
+API) i musi być zgodna.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
   `condition_matches` porównuje przez `==`. Rozgałęzienie po atrybucie bool (np.
   `attributes.interested: true` ustawionym przez `update_contact`) wymaga rozszerzenia typu
   `Condition.if` (np. o `bool` i `int`) oraz testów porównania typów.
+- Weryfikacja JWT lokalnie przez JWKS z cache (PyJWT, `PyJWKClient`) zamiast wywołania
+  `/auth/v1/user`; API czyta listę domen z `panel_allowed_domains` zamiast z env, żeby było jedno
+  źródło prawdy.
