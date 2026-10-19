@@ -62,6 +62,19 @@ może przyjść dla `wamid`, którego nie mamy, a tabela zdarzeń jest append-on
 Konsekwencje: API ustawia `journey_id` przy starcie runu na podstawie wersji; `DRAFT` nie jest
 statusem Meta i nie trafia do synchronizacji; zdarzenia bez `message_id` dopasowujemy później po `wamid`.
 
+### 7. Polityki RLS i strażnicy w bazie (2026-10-19)
+
+Decyzja: lista dozwolonych domen panelu to tabela `panel_allowed_domains`, sprawdzana przez funkcję
+`is_panel_user()` (`security definer`). Lokalnie wypełnia ją `supabase/seed.sql` wartością `example.org`;
+na projekcie hostowanym prawdziwą domenę wstawia się raz, ręcznie. Service role nie ma polityk, bo omija
+RLS. Reguły "tylko insert" dla `consents` i `message_events` oraz niezmienność opublikowanej
+`journey_versions` egzekwują triggery, nie uprawnienia.
+Powód: domena w tabeli jest widoczna i zmienialna bez nowej migracji, a ta sama lista posłuży panelowi
+(krok 7). Triggery działają także dla service role i superusera, więc błąd w API nie nadpisze śladu
+audytowego.
+Konsekwencje: osoba spoza listy po zalogowaniu widzi puste tabele, nie błąd; API tworzy nową wersję
+journey zamiast edytować opublikowaną; zmiana zgody to insert nowego wiersza.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
