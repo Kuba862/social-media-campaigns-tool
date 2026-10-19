@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "nodes": [
+    {"id": "start", "type": "start"},
+    {"id": "n1", "type": "send_template", "template_id": "tpl-1", "variables": {"1": "contact.first_name"}},
+    {"id": "n2", "type": "wait", "duration": "P2D"},
+    {"id": "n3", "type": "wait_for_reply", "timeout": "PT24H"},
+    {"id": "n4", "type": "branch", "conditions": [{"if": {"reply.button_payload": "YES"}, "next": "n5"}], "else": "end"},
+    {"id": "n5", "type": "update_contact", "set": {"attributes.interested": true}},
+    {"id": "end", "type": "end"}
+  ],
+  "edges": [
+    {"from": "start", "to": "n1"},
+    {"from": "n1", "to": "n2"},
+    {"from": "n2", "to": "n3"},
+    {"from": "n3", "to": "n4", "port": "replied"},
+    {"from": "n3", "to": "end", "port": "timeout"},
+    {"from": "n5", "to": "end"}
+  ]
+}
