@@ -1,4 +1,4 @@
-"""Graph rules. Pure functions, no I/o."""
+"""Graph rules. Pure functions, no I/O."""
 
 from collections import deque
 
@@ -7,7 +7,7 @@ from core.journey_schema import (
     EndNode,
     JourneyDefinition,
     SendTemplateNode,
-    WaitForReplyNode
+    WaitForReplyNode,
 )
 
 WAIT_TYPES = {"wait", "wait_for_reply"}
@@ -103,4 +103,3 @@ def _has_cycle_without_wait(defn: JourneyDefinition, succ: dict[str, list[str]])
         return False
 
     return any(node not in state and visit(node) for node in graph)
-    

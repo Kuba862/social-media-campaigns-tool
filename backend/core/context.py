@@ -1,5 +1,8 @@
+"""Dotted-path lookup used by branch conditions and template variables. No I/O."""
+
 from collections.abc import Mapping
 from typing import Any
+
 
 def resolve(path: str, ctx: Mapping[str, Any]) -> Any:
     """'contact.first_name' -> ctx['contact']['first_name']; missing -> None."""

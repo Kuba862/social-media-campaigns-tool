@@ -31,7 +31,7 @@ class WaitNode(Strict):
 class WaitForReplyNode(Strict):
     id: str
     type: Literal["wait_for_reply"]
-    duration: timedelta
+    timeout: timedelta
 
 
 class Condition(Strict):
@@ -61,8 +61,8 @@ Node = Annotated[
     StartNode
     | SendTemplateNode
     | WaitNode
-    | WaitForReplyNode 
-    | BranchNode 
+    | WaitForReplyNode
+    | BranchNode
     | UpdateContactNode
     | EndNode,
     Field(discriminator="type"),
