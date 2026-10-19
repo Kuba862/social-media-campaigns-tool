@@ -89,6 +89,19 @@ Konsekwencje: jedno wywołanie HTTP do Supabase na każde chronione żądanie; b
 nie 500. Lista domen istnieje w dwóch miejscach (tabela `panel_allowed_domains` dla RLS i env dla
 API) i musi być zgodna.
 
+### 9. Python przypięty do 3.12, worker z domyślnymi ustawieniami lokalnymi (2026-10-19)
+
+Decyzja: `backend/.python-version` ustawia 3.12 dla uv; `requires-python` zostaje `>=3.12`. Worker
+czyta `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE` i `TEMPORAL_API_KEY` z domyślnymi wartościami
+lokalnego serwera deweloperskiego (`localhost:7233`, `default`, brak klucza); pusty klucz oznacza
+połączenie bez TLS. Kolejka zadań nazywa się `wa-journeys`, jak w sekcji 2 instrukcji.
+Powód: bez pliku uv brał najnowszego zainstalowanego Pythona (3.14), a obrazy na Vercel i Cloud Run
+oraz natywne koła SDK (temporalio) są pewniejsze na 3.12; jeden interpreter lokalnie i w chmurze.
+Domyślne ustawienia pozwalają uruchomić workera komendą bez `.env`, API celowo ich nie ma, bo tam
+brak klucza Supabase jest błędem.
+Konsekwencje: Temporal Cloud wymaga ustawienia wszystkich trzech zmiennych; testy workflow idą na
+serwerze testowym SDK z przeskakiwaniem czasu, pobieranym przy pierwszym uruchomieniu.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
