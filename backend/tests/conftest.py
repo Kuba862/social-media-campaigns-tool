@@ -19,3 +19,9 @@ def guide_example_json() -> dict[str, Any]:
 @pytest.fixture
 def guide_example(guide_example_json: dict[str, Any]) -> JourneyDefinition:
     return JourneyDefinition.model_validate(guide_example_json)
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    """Run `@pytest.mark.anyio` tests on asyncio only (trio is not installed)."""
+    return "asyncio"
