@@ -159,6 +159,23 @@ quick reply (`BUTTONS` / `QUICK_REPLY`, nie zweryfikowany w dokumentacji) oraz p
 w odpowiedzi na utworzenie szablonu; wtedy fixture zastępujemy nagranymi odpowiedziami. Pole
 `rejected_reason` Meta mapujemy na nasze `rejection_reason`, a wartość `NONE` na brak powodu.
 
+### 14. API czyta i pisze bazę przez Supabase REST, Meta opcjonalna lokalnie (2026-10-20)
+
+Decyzja: API nie łączy się z Postgresem bezpośrednio. `api/db.py` woła PostgREST pod
+`{SUPABASE_URL}/rest/v1` przez httpx z kluczem service role, z nagłówkiem
+`Prefer: return=representation`; naruszenie unikalności wraca jako 409, inne błędy bazy jako 502,
+brak połączenia jako 503. Zmienne `META_*` mają lokalne wartości domyślne, a pusty
+`META_SYSTEM_USER_TOKEN` oznacza "Meta nieskonfigurowana": szkice i lista działają, `submit` i
+`sync` odpowiadają 503. Statusy w `templates` rozszerzone migracją o pełny enum Meta.
+Powód: bez nowej zależności, bez connection stringa i bez puli połączeń, co na Vercelu, gdzie każda
+funkcja startuje osobno, jest realnym problemem; `ON CONFLICT DO NOTHING` z sekcji 4.3 ma w PostgREST
+odpowiednik `Prefer: resolution=ignore-duplicates`. Opcjonalna Meta pozwala rozwijać i testować
+szablony bez konta.
+Konsekwencje: filtry w składni PostgREST (`id=eq.<uuid>`); brak transakcji między wierszami, co dla
+PoC wystarcza; worker na Cloud Run może później dostać asyncpg, jeśli SQL okaże się potrzebny.
+Testy tras używają podróbek bazy i Meta przez `dependency_overrides`, więc prawdziwy `Database`
+sprawdza tylko próba na żywo.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
