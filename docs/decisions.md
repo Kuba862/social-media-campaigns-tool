@@ -129,6 +129,19 @@ Konsekwencje: trzy miejsca pilnują domeny (RLS w bazie, API, panel) z dwóch ź
 Lint to goły `eslint`, bo Next 16 usunął `next lint`; typy sprawdza skrypt `typecheck`
 (`tsc --noEmit`). Testy Vitest i Playwright oraz job CI dla `web/` to krok 7b.
 
+### 12. Narzędzia jakości dla `web/`: Prettier, Vitest, Playwright, Node 26 (2026-10-20)
+
+Decyzja: Prettier z domyślnymi ustawieniami i szerokością 100 (jak ruff) formatuje cały `web/`;
+`AGENTS.md`, `pnpm-lock.yaml` i pliki generowane są pominięte. Vitest testuje tylko czyste funkcje
+w `lib/`; komponenty i akcje serwerowe testuje Playwright w Chromium przeciw lokalnemu Supabase,
+zakładając użytkownika testowego przez `/auth/v1/signup`. Node przypięty do 26 w `web/.node-version`.
+CI dostaje drugi job `web`: format, lint, typy, testy jednostkowe, build; Playwright zostaje poza CI.
+Powód: formatter zamiast dyskusji o wcięciach; jednostkowo tylko to, co nie potrzebuje DOM ani
+sieci; test w przeglądarce sprawdza proxy, akcje i ciasteczka razem, czego nie da się udawać.
+Playwright w CI wymagałby Supabase na maszynie GitHuba, czyli kilku minut obrazów Dockera na bieg.
+Konsekwencje: przed commitem w `web/` obowiązuje `pnpm format`; `pnpm test:e2e` uruchamia się
+lokalnie z działającym Supabase, `webServer` w konfiguracji sam startuje `pnpm dev`.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -138,3 +151,5 @@ Lint to goły `eslint`, bo Next 16 usunął `next lint`; typy sprawdza skrypt `t
 - Weryfikacja JWT lokalnie przez JWKS z cache (PyJWT, `PyJWKClient`) zamiast wywołania
   `/auth/v1/user`; API czyta listę domen z `panel_allowed_domains` zamiast z env, żeby było jedno
   źródło prawdy.
+- Playwright w CI: Supabase na runnerze (`supabase/setup-cli` + `supabase start`) albo projekt
+  testowy w chmurze; do decyzji, gdy testów e2e będzie więcej niż jeden plik.
