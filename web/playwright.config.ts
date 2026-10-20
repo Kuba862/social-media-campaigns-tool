@@ -9,9 +9,17 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
   },
   projects: [{ name: "chromium", use: { browserName: "chromium" } }],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000/login",
-    reuseExistingServer: true,
-  },
+  webServer: [
+    {
+      command: "uv run --env-file .env uvicorn api.main:app --port 8000",
+      cwd: "../backend",
+      url: "http://localhost:8000/healthz",
+      reuseExistingServer: true,
+    },
+    {
+      command: "pnpm dev",
+      url: "http://localhost:3000/login",
+      reuseExistingServer: true,
+    },
+  ],
 });

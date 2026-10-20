@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -17,6 +18,9 @@ export default async function HomePage() {
     <main>
       <h1>Social Media campaigns tool</h1>
       <p>Signed in as {user.email}</p>
+      <p>
+        <Link href="/templates">Templates</Link>
+      </p>
       <form action={logout}>
         <button type="submit">Sign out</button>
       </form>

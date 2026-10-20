@@ -176,6 +176,21 @@ PoC wystarcza; worker na Cloud Run może później dostać asyncpg, jeśli SQL o
 Testy tras używają podróbek bazy i Meta przez `dependency_overrides`, więc prawdziwy `Database`
 sprawdza tylko próba na żywo.
 
+### 15. Panel woła API tylko z serwera, wylogowanie lokalne, proxy nie przekierowuje POST (2026-10-20)
+
+Decyzja: strony i akcje Next wołają FastAPI przez `web/lib/api.ts` z tokenem sesji z ciasteczka;
+adres w zmiennej `API_URL` bez prefiksu `NEXT_PUBLIC_`, moduł oznaczony `server-only`. Przeglądarka
+nigdy nie woła API. `logout` używa `signOut({ scope: "local" })`, proxy przekierowuje anonimowych
+tylko dla żądań GET, a akcja, która dostanie z API 401, odsyła na `/login`.
+Powód: bez CORS i bez wystawiania API w przeglądarce; API i tak weryfikuje token w Supabase.
+Domyślny zakres `global` w `signOut` unieważnia wszystkie sesje użytkownika, więc wylogowanie w jednej
+karcie psuło akcje w drugiej, a w Playwright test logowania zabijał sesję testu szablonów w drugim
+workerze. Przekierowanie POST akcji serwerowej z proxy kończy się w React błędem "unexpected
+response", bo zamiast strumienia akcji przychodzi HTML strony logowania.
+Konsekwencje: Playwright uruchamia też API (`webServer` z `cwd: ../backend`), więc e2e przechodzi
+przez przeglądarkę, serwer Next, API i bazę; test szablonów zostawia w lokalnej bazie szkice
+`e2e_<czas>`, które czyści `db reset`.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
