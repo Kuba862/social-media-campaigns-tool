@@ -7,14 +7,30 @@ import httpx
 from fastapi import FastAPI
 
 from api.auth import CurrentUser
+from api.db import Database
+from api.routes.templates import router as templates_router
 from api.settings import load_settings
+from meta_client import MetaClient
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Runs once at startup (before yield) and once at shutdown (after)."""
-    app.state.settings = load_settings()
+    settings = load_settings()
+    app.state.settings = settings
     app.state.http = httpx.AsyncClient(timeout=10.0)
+    app.state.db = Database(app.state.http, settings)
+    app.state.meta = (
+        MetaClient(
+            app.state.http,
+            graph_version=settings.meta_graph_version,
+            waba_id=settings.meta_waba_id,
+            phone_number_id=settings.meta_phone_number_id,
+            access_token=settings.meta_system_user_token,
+        )
+        if settings.meta_system_user_token
+        else None
+    )
     try:
         yield
     finally:
@@ -22,6 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="WhatsApp campaigns API", lifespan=lifespan)
+app.include_router(templates_router)
 
 
 @app.get("/healthz")
