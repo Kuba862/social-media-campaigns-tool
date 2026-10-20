@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "id": "1259544702043867",
+      "name": "welcome_offer",
+      "language": "pl",
+      "status": "REJECTED",
+      "category": "MARKETING",
+      "rejected_reason": "INVALID_FORMAT"
+    },
+    {
+      "id": "1259544702043868",
+      "name": "welcome_offer",
+      "language": "en_US",
+      "status": "APPROVED",
+      "category": "MARKETING",
+      "rejected_reason": "NONE"
+    }
+  ],
+  "paging": {"cursors": {"before": "MAZDZD", "after": "MQZDZD"}}
+}
