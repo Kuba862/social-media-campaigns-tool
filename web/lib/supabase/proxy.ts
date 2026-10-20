@@ -33,7 +33,7 @@ export async function updateSession(request: NextRequest) {
     await supabase.auth.signOut();
     return NextResponse.redirect(new URL("/login?error=domain", request.url));
   }
-  if (!user && !onLoginPage) {
+  if (!user && !onLoginPage && request.method === "GET") {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   if (user && onLoginPage) {
