@@ -142,6 +142,23 @@ Playwright w CI wymagałby Supabase na maszynie GitHuba, czyli kilku minut obraz
 Konsekwencje: przed commitem w `web/` obowiązuje `pnpm format`; `pnpm test:e2e` uruchamia się
 lokalnie z działającym Supabase, `webServer` w konfiguracji sam startuje `pnpm dev`.
 
+### 13. `meta_client` na fixture spisanych z dokumentacji, dwa typy błędów (2026-10-20)
+
+Decyzja: `backend/meta_client` to jedyne miejsce znające JSON Meta. Trzy operacje: utworzenie
+szablonu (`POST /{waba_id}/message_templates`, format pozycyjny `{{n}}` z `example.body_text`),
+odczyt stanu szablonu (`GET .../message_templates?name=&language=`) i wysyłka wiadomości
+szablonowej (`POST /{phone_number_id}/messages`). Błędy mapujemy na dwa typy: `MetaTransientError`
+(sieć, 5xx, kody throttlingu 4, 17, 32, 613, 80007, 130429, 131048, 131056) i `MetaPermanentError`
+(reszta 4xx), bo sekcja 4.3 instrukcji każe ponawiać tylko pierwsze. Fixture w
+`tests/fixtures/meta/` są spisane z dokumentacji Cloud API, nie nagrane z konta.
+Powód: pakiet da się napisać i przetestować bez konta Meta; typ wyjątku zamiast kodu w każdym
+miejscu wywołania; throttling przychodzi jako HTTP 400, więc klasyfikacja idzie po kodzie Meta.
+Konsekwencje: przy pierwszym prawdziwym wywołaniu trzeba potwierdzić i w razie potrzeby poprawić:
+wartość `parameter_format` ("positional" wg przykładu w dokumentacji), kształt przycisków
+quick reply (`BUTTONS` / `QUICK_REPLY`, nie zweryfikowany w dokumentacji) oraz pole `category`
+w odpowiedzi na utworzenie szablonu; wtedy fixture zastępujemy nagranymi odpowiedziami. Pole
+`rejected_reason` Meta mapujemy na nasze `rejection_reason`, a wartość `NONE` na brak powodu.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
