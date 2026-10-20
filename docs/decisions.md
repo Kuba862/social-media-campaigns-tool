@@ -114,6 +114,21 @@ Konsekwencje: test workera pobiera serwer testowy SDK na maszynę GitHuba przy k
 (ok. 10 s); jeśli zacznie przeszkadzać, dojdzie cache. Wymaganie zielonego checku `backend`
 przed merge to ustawienie gałęzi w GitHubie, które włącza właściciel.
 
+### 11. Panel Next.js 16 z sesją w ciasteczkach i domeną sprawdzaną przed logowaniem (2026-10-20)
+
+Decyzja: `web/` to Next.js 16 (App Router, TypeScript strict, bez Tailwinda i React Compilera),
+wygenerowany flagą `--empty`. Sesję Supabase trzyma `@supabase/ssr` w ciasteczkach; `proxy.ts`
+(następca `middleware.ts` w Next 16) odświeża ją przy każdym żądaniu, przekierowuje niezalogowanych
+na `/login` i wylogowuje zalogowanych spoza domeny. Logowanie e-mailem i hasłem przez akcję
+serwerową, która sprawdza `PANEL_ALLOWED_EMAIL_DOMAIN` przed wywołaniem Supabase; zmienna jest
+bez prefiksu `NEXT_PUBLIC_`, bo czyta ją tylko serwer. Nazwy zmiennych panelu są w `web/.env.example`.
+Powód: sesja w ciasteczkach pozwala komponentom serwerowym i akcjom czytać tego samego użytkownika,
+co przeglądarka, bez własnego API; sprawdzenie domeny przed logowaniem nie zakłada sesji osobie
+spoza listy. Hasło zamiast magic linka, bo lokalnie nie ma poczty, a PoC testuje panel, nie Auth.
+Konsekwencje: trzy miejsca pilnują domeny (RLS w bazie, API, panel) z dwóch źródeł: tabela i env.
+Lint to goły `eslint`, bo Next 16 usunął `next lint`; typy sprawdza skrypt `typecheck`
+(`tsc --noEmit`). Testy Vitest i Playwright oraz job CI dla `web/` to krok 7b.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
