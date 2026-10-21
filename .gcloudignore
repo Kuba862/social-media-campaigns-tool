@@ -1,0 +1,12 @@
+# What `gcloud builds submit .` uploads from the repo root: only what the worker image needs.
+*
+!cloudbuild.yaml
+!backend/
+backend/.venv/
+backend/.env
+backend/.env.*
+backend/tests/
+backend/.ruff_cache/
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/**/__pycache__/

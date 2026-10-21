@@ -2,9 +2,9 @@
 
 Worker Temporala to kontener z `backend/Dockerfile`, uruchamiany jako **Cloud Run worker pool**
 (stała liczba instancji, bez adresu HTTP; to wariant "worker pool preferred" z sekcji 1
-instrukcji). Cloud Build buduje obraz z każdego pusha na `master` i wdraża go według
-`cloudbuild.yaml` w katalogu głównym repo. Sekrety mieszkają w Secret Managerze, reszta
-konfiguracji w substytucjach triggera.
+instrukcji). Cloud Build buduje obraz i wdraża go według `cloudbuild.yaml` w katalogu głównym
+repo; build można uruchomić z laptopa, z GitHub Actions albo z triggera (sekcja 3). Sekrety
+mieszkają w Secret Managerze, reszta konfiguracji w substytucjach.
 
 ## 0. Co jest w repo (nic do zrobienia)
 
@@ -14,7 +14,11 @@ konfiguracji w substytucjach triggera.
   nie potrzebuje, ale dzięki temu ten sam obraz zadziała też jako Cloud Run *service*
   z `--min-instances=1 --no-cpu-throttling`.
 - `cloudbuild.yaml`: build, push do Artifact Registry, `gcloud run worker-pools deploy`
-  z `--instances=1`, zmiennymi z substytucji i sekretami przez `--set-secrets`.
+  z `--instances=1`, zmiennymi z substytucji i sekretami przez `--set-secrets`; obraz tagowany
+  `$BUILD_ID`, więc działa z triggera, z `gcloud builds submit` i z GitHub Actions.
+- `.gcloudignore`: `gcloud builds submit .` wysyła tylko `backend/` i `cloudbuild.yaml`.
+- `.github/workflows/deploy-worker.yml`: wdrożenie z GitHub Actions przez Workload Identity
+  Federation, włączane zmienną repo `DEPLOY_WORKER=true` (sekcja 3B).
 
 ## 1. Temporal Cloud
 
@@ -55,31 +59,92 @@ konfiguracji w substytucjach triggera.
    zależnie od ustawień) i dodaj role **Cloud Run Admin**, **Artifact Registry Writer**,
    **Service Account User** (żeby mógł wdrażać jako `wa-worker`).
 
-## 3. Cloud Build: trigger z GitHuba
+## 3. Uruchamianie builda: trzy drogi
 
-1. Cloud Build → Triggers → **Connect repository** (GitHub, aplikacja Cloud Build) → wybierz
-   `Kuba862/social-media-campaigns-tool`.
-2. **Create trigger**: nazwa `worker-master`, event *Push to a branch*, branch `^master$`,
-   configuration *Cloud Build configuration file*, lokalizacja `/cloudbuild.yaml`, region
-   `europe-west1`.
-3. **Substitution variables** w triggerze (nadpisują wartości domyślne z pliku):
+`cloudbuild.yaml` jest ten sam w każdej z nich; różni się tylko to, kto go uruchamia. Wartości
+substytucji są wspólne:
 
-   | Zmienna | Wartość |
+| Zmienna | Wartość |
+|---|---|
+| `_TEMPORAL_ADDRESS` | `wa-campaigns.<id-konta>.tmprl.cloud:7233` |
+| `_TEMPORAL_NAMESPACE` | `wa-campaigns.<id-konta>` |
+| `_SUPABASE_URL` | Project URL z Supabase |
+| `_WA_ALLOWED_TEST_RECIPIENTS` | numery testowe E.164 po przecinku |
+| `_META_WABA_ID`, `_META_PHONE_NUMBER_ID` | później, z konta Meta |
+| `_SECRETS` | zostaw domyślne; dopisz `,META_SYSTEM_USER_TOKEN=meta-system-user-token:latest,SYNC_POSTGRES_DSN=sync-postgres-dsn:latest`, gdy te sekrety istnieją |
+
+### 3A. Z laptopa, bez podłączania repo (najprostsza, działa od razu)
+
+`gcloud builds submit` wysyła źródła z Twojego checkoutu do Cloud Build (plik `.gcloudignore`
+ogranicza to do `backend/` i `cloudbuild.yaml`), a Cloud Build buduje obraz i wdraża worker pool.
+Wymaga zainstalowanego `gcloud` (Google Cloud SDK jest na tej maszynie) i jednorazowego logowania:
+
+```bash
+gcloud auth login
+```
+
+```bash
+gcloud config set project <id-projektu-gcp>
+```
+
+Z katalogu głównego repo, na gałęzi `master` po `git pull` (listę numerów oddzielaj znakiem `|`,
+bo `^|^` zmienia separator na kreskę pionową):
+
+```bash
+gcloud builds submit --config cloudbuild.yaml --region europe-west1 --substitutions '^|^_TEMPORAL_ADDRESS=wa-campaigns.<id-konta>.tmprl.cloud:7233|_TEMPORAL_NAMESPACE=wa-campaigns.<id-konta>|_SUPABASE_URL=https://<ref>.supabase.co|_WA_ALLOWED_TEST_RECIPIENTS=+48600000001,+48600000002' .
+```
+
+Każde kolejne wdrożenie to to samo polecenie. Wada: ktoś musi je uruchomić ręcznie.
+
+### 3B. GitHub Actions przez Workload Identity Federation (automatycznie po pushu)
+
+Repo jest prywatne, a konto GCP firmowe, więc zamiast podłączać repo do Cloud Build, GitHub
+loguje się do GCP tokenem OIDC (bez kluczy JSON). Workflow `.github/workflows/deploy-worker.yml`
+jest w repo i uruchamia dokładnie `gcloud builds submit` jak w 3A. Konfiguracja w GCP (raz):
+
+1. IAM → **Workload Identity Federation** → Create pool: nazwa `github`. W puli **Add provider**:
+   OpenID Connect, nazwa `github`, issuer `https://token.actions.githubusercontent.com`,
+   mapowanie atrybutów `google.subject = assertion.sub`,
+   `attribute.repository = assertion.repository`, warunek
+   `attribute.repository == "Kuba862/social-media-campaigns-tool"`.
+2. Service accounts → Create: `github-deploy`. Role: **Cloud Build Editor**,
+   **Service Account User** (na `wa-worker` i na koncie Cloud Build), **Storage Admin** albo
+   **Storage Object Creator** na bucket źródeł Cloud Build (`gcloud builds submit` wrzuca tam
+   archiwum), **Viewer** na projekt.
+3. Na koncie `github-deploy` → **Permissions → Grant access**: principal
+   `principalSet://iam.googleapis.com/projects/<numer-projektu>/locations/global/workloadIdentityPools/github/attribute.repository/Kuba862/social-media-campaigns-tool`
+   z rolą **Workload Identity User**.
+4. W GitHubie: repo → Settings → Secrets and variables → Actions → **Variables** (nie Secrets,
+   bo żadna z nich nie jest tajna):
+
+   | Zmienna repo | Wartość |
    |---|---|
-   | `_TEMPORAL_ADDRESS` | `wa-campaigns.<id-konta>.tmprl.cloud:7233` |
-   | `_TEMPORAL_NAMESPACE` | `wa-campaigns.<id-konta>` |
-   | `_SUPABASE_URL` | Project URL z Supabase |
-   | `_WA_ALLOWED_TEST_RECIPIENTS` | numery testowe E.164 po przecinku |
-   | `_META_WABA_ID`, `_META_PHONE_NUMBER_ID` | później, z konta Meta |
-   | `_SECRETS` | zostaw domyślne; dopisz `,META_SYSTEM_USER_TOKEN=meta-system-user-token:latest,SYNC_POSTGRES_DSN=sync-postgres-dsn:latest`, gdy te sekrety istnieją |
+   | `DEPLOY_WORKER` | `true` (włącza workflow) |
+   | `GCP_PROJECT_ID` | id projektu |
+   | `GCP_REGION` | `europe-west1` |
+   | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<numer-projektu>/locations/global/workloadIdentityPools/github/providers/github` |
+   | `GCP_DEPLOY_SERVICE_ACCOUNT` | `github-deploy@<id-projektu>.iam.gserviceaccount.com` |
+   | `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `SUPABASE_URL`, `WA_ALLOWED_TEST_RECIPIENTS` | jak w tabeli substytucji |
 
-4. Pierwsze wdrożenie uruchom ręcznie przyciskiem **Run** przy triggerze (gałąź `master`).
-   Krok `deploy` tworzy worker pool `wa-worker` przy pierwszym uruchomieniu; przy kolejnych
-   podmienia obraz. Jeśli `gcloud` zapyta o konto usługi, w kroku deploy dopisz
-   `--service-account=wa-worker@<projekt>.iam.gserviceaccount.com` (albo dodaj to do
-   `cloudbuild.yaml`).
-5. Cloud Run → Worker pools → `wa-worker` → **Logs**: po starcie ma być linia
-   `worker ready on wa-campaigns.<id-konta>.tmprl.cloud:7233, task queue wa-journeys`.
+5. Actions → **deploy-worker** → Run workflow (albo push na `master` ze zmianą w `backend/`).
+
+Jeśli polityka firmowego GCP nie pozwala na pulę Workload Identity, zostaje wariant 3A albo
+klucz JSON konta `github-deploy` w sekrecie GitHuba `GOOGLE_CREDENTIALS` i krok
+`google-github-actions/auth@v3` z `credentials_json` zamiast WIF (klucz jest długowieczny,
+traktuj go jak hasło).
+
+### 3C. Trigger Cloud Build z GitHuba (gdy repo da się podłączyć)
+
+Cloud Build → Triggers → Connect repository (GitHub) → Create trigger: push na `^master$`, plik
+`/cloudbuild.yaml`, region `europe-west1`, substytucje z tabeli wyżej. Pierwsze uruchomienie
+przyciskiem **Run**.
+
+### Po pierwszym wdrożeniu (każda droga)
+
+Cloud Run → Worker pools → `wa-worker` → **Logs**: po starcie ma być linia
+`worker ready on wa-campaigns.<id-konta>.tmprl.cloud:7233, task queue wa-journeys`. Jeśli
+`gcloud` odmówi wdrożenia z powodu konta usługi, dopisz do kroku `deploy` w `cloudbuild.yaml`
+`--service-account=wa-worker@<id-projektu>.iam.gserviceaccount.com`.
 
 ## 4. Spięcie z API na Vercelu
 

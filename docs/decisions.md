@@ -655,7 +655,11 @@ Run unika rozjazdu konfiguracji.
 Konsekwencje: obraz ma ok. 290 MB (temporalio z rdzeniem w Rust, psycopg); worker pool nie
 skaluje się automatycznie, jedna instancja wystarcza na PoC; obraz sprawdzony lokalnie
 w Dockerze przeciwko lokalnemu Temporal i Supabase (workflow synchronizacji wykonany przez
-kontener), samo wdrożenie w GCP wykona właściciel według instrukcji.
+kontener), samo wdrożenie w GCP wykona właściciel według instrukcji. Repo jest prywatne, a GCP
+firmowe, więc podłączenie repo do Cloud Build może być niemożliwe: build uruchamia się wtedy
+z laptopa (`gcloud builds submit`, `.gcloudignore` wysyła tylko `backend/`) albo z GitHub Actions
+przez Workload Identity Federation (`deploy-worker.yml`, bez kluczy JSON); obrazy są tagowane
+`$BUILD_ID`, bo `$SHORT_SHA` istnieje tylko w buildach z triggera.
 
 ## Later
 
