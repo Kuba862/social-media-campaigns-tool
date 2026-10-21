@@ -52,7 +52,6 @@ i w Supabase; nigdy do repo ani do czatu.
    | `WA_SEND_MODE` | `test` |
    | `WA_ALLOWED_TEST_RECIPIENTS` | numery testowe E.164 po przecinku, np. `+48600000001` |
    | `META_GRAPH_VERSION`, `META_WABA_ID`, `META_PHONE_NUMBER_ID`, `META_SYSTEM_USER_TOKEN`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | dopiero gdy będzie konto Meta; bez nich API działa w trybie szkiców |
-   | `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_API_KEY` | dopiero gdy będzie Temporal Cloud; bez nich start przebiegów i synchronizacja odpowiadają 503 |
 
 4. **Deploy**. Po zbudowaniu sprawdź `https://<projekt-api>.vercel.app/healthz` →
    `{"status":"ok"}`. Zapisz ten adres: to `API_URL` panelu.
@@ -80,8 +79,9 @@ i w Supabase; nigdy do repo ani do czatu.
   `https://<projekt-api>.vercel.app/webhooks/meta`, Verify token = wartość
   `META_WEBHOOK_VERIFY_TOKEN` z projektu API; subskrypcje `messages`
   i `message_template_status_update`.
-- **Temporal Cloud**: po utworzeniu namespace wpisz `TEMPORAL_*` w projekcie API (worker na
-  Cloud Run dostaje je osobno, krok 5b).
+- **Silnik przebiegów**: API nie łączy się z Temporalem; polecenia idą przez tabelę
+  `dispatch_queue`, a wykonuje je worker na Cloud Run (`docs/deploy-cloud-run.md`). Bez workera
+  przebiegi i synchronizacje czekają w kolejce jako `queued`.
 - Każdy push na `master` wdraża oba projekty; PR daje adres podglądu (na planie Hobby podgląd
   jest chroniony logowaniem do Vercela, produkcja jest publiczna, więc webhook Mety celuje
   w produkcję).
@@ -92,4 +92,5 @@ i w Supabase; nigdy do repo ani do czatu.
 - Panel: "API is not reachable" → sprawdź `API_URL` i czy `/healthz` odpowiada; 401 po
   zalogowaniu → `PANEL_ALLOWED_EMAIL_DOMAIN` różni się między projektami albo brakuje domeny
   w `panel_allowed_domains`.
-- 503 "Temporal unavailable" przy starcie przebiegu → oczekiwane, dopóki nie ma Temporal Cloud.
+- Przebieg zostaje `queued` → worker na Cloud Run nie działa albo nie czyta tej bazy
+  (`SUPABASE_URL` workera inne niż API).
