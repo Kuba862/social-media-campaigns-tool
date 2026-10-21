@@ -191,6 +191,23 @@ Konsekwencje: Playwright uruchamia też API (`webServer` z `cwd: ../backend`), w
 przez przeglądarkę, serwer Next, API i bazę; test szablonów zostawia w lokalnej bazie szkice
 `e2e_<czas>`, które czyści `db reset`.
 
+### 16. Webhooki Meta: podpis i parser w `meta_client`, część kształtów założona (2026-10-21)
+
+Decyzja: `meta_client/webhooks.py` sprawdza `X-Hub-Signature-256` jako `sha256=` + HMAC-SHA256
+sekretu aplikacji z surowym ciałem, porównując w stałym czasie, i spłaszcza `entry[].changes[]`
+do trzech typów zdarzeń: status szablonu, status naszej wiadomości, wiadomość przychodząca.
+Nieznane pola i statusy są pomijane, nie zgłaszane; numery telefonów parser normalizuje do E.164
+z plusem. Potwierdzone w dokumentacji: kształt `statuses`, pola `message_template_status_update`,
+handshake `hub.verify_token`, nagłówek podpisu. Założone na podstawie ustalonego formatu Cloud API,
+bo strony referencyjne renderuje JavaScript: odpowiedź przyciskiem (`type: button`,
+`button.payload`), pole `context.id` i tablica `errors` w statusach.
+Powód: pominięcie nieznanego statusu zamiast błędu, bo Meta ponawia webhook po każdej odpowiedzi
+spoza 2xx i jeden nowy status zapętliłby dostawę; parser w `meta_client`, żeby trasa w API
+widziała tylko nasze typy.
+Konsekwencje: przy pierwszym prawdziwym webhooku trzeba porównać ładunek z fixture
+`webhook_inbound.json` i poprawić założone pola; zapis do tabel i handshake to krok 3b,
+sygnały do Temporal przyjdą z silnikiem Journey w fazie 3.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
