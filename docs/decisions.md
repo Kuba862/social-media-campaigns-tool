@@ -525,6 +525,79 @@ Konsekwencje: dopasowanie po `external_ref` z numerem, który ma już inny konta
 konfliktem unikalności (409 z PostgREST) i przerywa partię; deduplikacji osób nie ma w PoC.
 Nowa zależność `phonenumbers` (wymieniona w sekcji 5).
 
+### 34. `SyncConnectorWorkflow`: wiersz przebiegu otwierany pierwszą aktywnością, partie po 100, `since` ze startu ostatniego sukcesu (2026-10-21)
+
+Decyzja: workflow dostaje tylko nazwę konektora; `begin_run` czyta wiersz `sync_connectors`
+(konfiguracja bez sekretów), liczy `since` jako `started_at` ostatniego udanego przebiegu tego
+konektora i zakłada wiersz `sync_runs` ze statusem `running`. `extract` ściąga całą listę
+zmienionych rekordów (heartbeat co 100), `write_batch` zapisuje partie po 100 przez ramkę z 7a
+(heartbeat po partii), `finish_run` zapisuje `succeeded` ze statystykami albo `failed` z treścią
+błędu; po błędzie workflow kończy się niepowodzeniem, więc harmonogram i panel widzą to samo.
+Aktywności mają limity: wiersze 30 s, ekstrakcja 30 min, zapis partii 5 min, heartbeat 2 min,
+trzy próby. Nieznany konektor kończy się bez wiersza przebiegu (`ApplicationError`, bez ponowień).
+Powód: sekcja 5 każe uruchamiać konektory jako workflow z harmonogramu, a ekstrakcję i upsert
+jako aktywności z heartbeatem; `since` od startu, nie końca, poprzedniego przebiegu, żeby zmiany
+zapisane w źródle w trakcie synchronizacji nie przepadły.
+Konsekwencje: lista rekordów wraca z `extract` w całości, więc bardzo duże źródła (dziesiątki
+tysięcy wierszy) wymagałyby ekstrakcji stronami w kolejnych aktywnościach, czego PoC nie robi;
+wszystko jedzie na kolejce `wa-journeys`, jeden worker obsługuje journeys i synchronizację.
+
+### 35. Konektor Postgres: tabela i kolumny w konfiguracji, DSN ze środowiska, ekstrakcja w wątku (2026-10-21)
+
+Decyzja: `sync/connectors/postgres.py` czyta jedną tabelę lub widok w bazie, którą kontrolujemy.
+Konfiguracja w `sync_connectors.config` (bez sekretów): `table` ("schema.tabela"), `columns`
+(nasze pole → kolumna źródła, domyślnie te same nazwy, `external_ref` → `id`; `null` wyłącza
+pole, którego źródło nie ma, wymagane są tylko `phone` i `updated_at`), `attributes`
+(dodatkowe kolumny kopiowane do `contacts.attributes`), `default_region`, `dsn_env` (nazwa
+zmiennej środowiskowej z łańcuchem połączenia, domyślnie `SYNC_POSTGRES_DSN`; w produkcji sekret
+`sync-postgres-dsn` z Secret Managera wstrzyknięty do workera). Zapytanie składane jest
+z `psycopg.sql.Identifier`, więc nazwy z konfiguracji nie trafiają do SQL jako tekst; `since`
+filtruje po kolumnie `updated_at`. Wartości wychodzą z konektora jako JSON-owalne typy (daty
+jako ISO), bo wracają z aktywności przez Temporal. Ekstrakcja w aktywności działa w wątku
+(`asyncio.to_thread`), bo `psycopg` blokuje; `to_thread` przenosi kontekst aktywności, więc
+heartbeat działa. Protokół `Connector` ma `name` i `default_region` jako właściwości tylko do
+odczytu, żeby zamrożone dataclassy go spełniały. Demo: `postgres_demo.sql` tworzy `legacy.contacts`
+w lokalnym Supabase; test z żywym odczytem uruchamia się tylko, gdy `SYNC_POSTGRES_DSN` jest
+ustawione (w CI jest pomijany).
+Powód: sekcja 5: jeden prawdziwy konektor z Postgresa lub CSV, konfiguracja bez sekretów,
+sekrety z Secret Managera; wybór Postgresa zamiast CSV w buckecie nie wymaga konta GCP.
+Konsekwencje: `psycopg[binary]` to nowa zależność; worker potrzebuje dostępu sieciowego do bazy
+źródłowej; przy `attributes` i `columns` błędna nazwa kolumny kończy się błędem SQL w pierwszej
+próbie ekstrakcji, który trafia do `sync_runs.error`.
+
+### 36. API synchronizacji: wiersz konektora jest źródłem harmonogramu, Temporal Schedule nakładany na żądanie (2026-10-21)
+
+Decyzja: `PUT /sync/connectors/{name}` zakłada albo nadpisuje wiersz `sync_connectors` (nazwa musi
+istnieć w rejestrze konektorów, cron musi mieć pięć pól; `config` bez sekretów).
+`POST /sync/connectors/{name}/schedule` tworzy lub podmienia Temporal Schedule `sync:{name}`
+z cronem i flagą `enabled` z wiersza (`enabled=false` to harmonogram wstrzymany, nie usunięty),
+więc baza jest źródłem prawdy, a Temporal odbiciem, które nakłada się świadomie, nie przy
+każdym zapisie. `POST /sync/connectors/{name}/run` startuje workflow od ręki z identyfikatorem
+`sync:{name}:manual-…` i nie czeka na wynik (202). `GET /sync/connectors` dokłada do wierszy
+stan harmonogramu z Temporal (pauza, cron, następne uruchomienie, liczba uruchomień), a bez
+Temporal zwraca `schedule: null`. `GET /sync/runs?connector=` listuje przebiegi z nazwą
+konektora. Jeden klient Temporal obsługuje journeys i synchronizację (`AllRuns`).
+Powód: sekcja 5: każdy konektor działa jako workflow na harmonogramie z `schedule_cron`;
+rozdzielenie zapisu wiersza od nałożenia harmonogramu pozwala przygotować konfigurację bez
+Temporal (np. w CI) i daje jawny moment, w którym harmonogram rusza.
+Konsekwencje: zmiana crona w wierszu nie działa, dopóki ktoś nie nałoży harmonogramu ponownie
+(panel w 7e ma na to przycisk); polityka nakładania się przebiegów to domyślne "pomiń", więc
+przebieg trwający dłużej niż interwał nie dubluje się; harmonogram na lokalnym serwerze dev
+znika z jego restartem (dane w pamięci).
+
+### 37. Panel synchronizacji: jedna strona na konektory, rejestrację i przebiegi (2026-10-21)
+
+Decyzja: `/sync` pokazuje wiersze konektorów ze stanem harmonogramu z Temporal (pauza, następne
+uruchomienie, liczba uruchomień albo "not scheduled"), przyciski Run now i Apply schedule,
+formularz "zarejestruj lub zaktualizuj" (nazwa z listy znanych modułów, cron, włączony, config
+jako JSON bez sekretów, walidowany w akcji serwera przed wysłaniem) oraz listę przebiegów ze
+statystykami bez zerowych liczników i treścią błędu. Nawigacja dostaje piąty link "Sync".
+Powód: sekcja 6 (faza 4) wymaga widoku `sync_runs`; rejestracja z panelu pozwala właścicielowi
+podpiąć konektor bez psql, a lista konektorów w formularzu jest odbiciem rejestru w kodzie.
+Konsekwencje: lista nazw konektorów w `web/lib/sync.ts` trzeba uzupełnić przy każdym nowym module
+(API i tak odrzuci nieznaną nazwę); w testach Playwright tabele mają `aria-label`, a pola wybiera
+się po `name`, bo `getByLabel("Connector")` trafiało też w tabelę "Connectors".
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

@@ -6,6 +6,7 @@ dependencies = [
     "fastapi>=0.148.0",
     "httpx>=0.28.1",
     "phonenumbers>=9.0.41",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.14.1",
     "temporalio>=1.34.0",
 ]

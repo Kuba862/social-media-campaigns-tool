@@ -7,7 +7,7 @@ from temporalio.service import RPCError
 
 from api.db import Database
 from api.settings import Settings
-from api.temporal import JourneyRuns, connect
+from api.temporal import AllRuns, connect
 from meta_client import MetaClient
 
 
@@ -30,9 +30,9 @@ def get_meta(request: Request) -> MetaClient:
     return meta
 
 
-async def get_runs(request: Request) -> JourneyRuns:
+async def get_runs(request: Request) -> AllRuns:
     """Connects to Temporal on first use and keeps the client for the process."""
-    runs: JourneyRuns | None = request.app.state.runs
+    runs: AllRuns | None = request.app.state.runs
     if runs is None:
         try:
             runs = await connect(request.app.state.settings)
@@ -44,7 +44,7 @@ async def get_runs(request: Request) -> JourneyRuns:
     return runs
 
 
-async def get_runs_or_none(request: Request) -> JourneyRuns | None:
+async def get_runs_or_none(request: Request) -> AllRuns | None:
     """For the webhook: persist first, signal if Temporal is reachable, never fail the request."""
     try:
         return await get_runs(request)
@@ -55,5 +55,5 @@ async def get_runs_or_none(request: Request) -> JourneyRuns | None:
 AppSettings = Annotated[Settings, Depends(get_settings)]
 Db = Annotated[Database, Depends(get_db)]
 Meta = Annotated[MetaClient, Depends(get_meta)]
-Runs = Annotated[JourneyRuns, Depends(get_runs)]
-OptionalRuns = Annotated[JourneyRuns | None, Depends(get_runs_or_none)]
+Runs = Annotated[AllRuns, Depends(get_runs)]
+OptionalRuns = Annotated[AllRuns | None, Depends(get_runs_or_none)]

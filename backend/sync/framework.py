@@ -35,8 +35,12 @@ class ContactUpsert:
 class Connector(Protocol):
     """One module per source. `name` is the key in sync_connectors; config comes from that row."""
 
-    name: str
-    default_region: str | None  # ISO 3166-1 alpha-2 for numbers without a country prefix
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def default_region(self) -> str | None:  # ISO 3166-1 alpha-2 for numbers without a prefix
+        ...
 
     def extract(self, since: datetime | None) -> Iterable[Mapping[str, Any]]: ...
     def map(self, record: Mapping[str, Any]) -> ContactUpsert: ...

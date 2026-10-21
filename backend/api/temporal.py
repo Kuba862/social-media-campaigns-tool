@@ -1,14 +1,24 @@
-"""The API's door to Temporal: start, cancel and inspect journey runs (guide 4.2)."""
+"""The API's door to Temporal: journey runs (guide 4.2) and sync runs with schedules (guide 5)."""
 
+import uuid
 from collections.abc import Awaitable
 from typing import Any, Protocol
 
-from temporalio.client import Client
+from temporalio.client import (
+    Client,
+    Schedule,
+    ScheduleActionStartWorkflow,
+    ScheduleAlreadyRunningError,
+    ScheduleSpec,
+    ScheduleState,
+    ScheduleUpdate,
+)
 from temporalio.exceptions import WorkflowAlreadyStartedError
 from temporalio.service import RPCError, RPCStatusCode
 
 from api.settings import Settings
 from worker.workflows.journey import TASK_QUEUE, JourneyRunInput, JourneyWorkflow, ReplySignal
+from worker.workflows.sync import SyncConnectorWorkflow
 
 
 class RunAlreadyActive(Exception):
@@ -22,6 +32,20 @@ class JourneyRuns(Protocol):
     async def signal_reply(self, workflow_id: str, reply: ReplySignal) -> None: ...
     async def signal_opt_out(self, workflow_id: str) -> None: ...
     async def signal_status(self, workflow_id: str, status: dict[str, Any]) -> None: ...
+
+
+class SyncRuns(Protocol):
+    async def start_sync(self, connector: str) -> str: ...
+    async def apply_schedule(self, connector: str, cron: str, enabled: bool) -> None: ...
+    async def schedule_info(self, connector: str) -> dict[str, Any] | None: ...
+
+
+class AllRuns(JourneyRuns, SyncRuns, Protocol):
+    """One Temporal client serves both; the API's dependency hands out this type."""
+
+
+def schedule_id(connector: str) -> str:
+    return f"sync:{connector}"
 
 
 class TemporalJourneyRuns:
@@ -54,6 +78,49 @@ class TemporalJourneyRuns:
     async def signal_status(self, workflow_id: str, status: dict[str, Any]) -> None:
         handle = self._client.get_workflow_handle_for(JourneyWorkflow.run, workflow_id)
         await _ignore_closed(handle.signal(JourneyWorkflow.message_status, status))
+
+    async def start_sync(self, connector: str) -> str:
+        """An on-demand run next to the scheduled ones; the caller does not wait for it."""
+        workflow_id = f"sync:{connector}:manual-{uuid.uuid4().hex[:8]}"
+        await self._client.start_workflow(
+            SyncConnectorWorkflow.run, connector, id=workflow_id, task_queue=TASK_QUEUE
+        )
+        return workflow_id
+
+    async def apply_schedule(self, connector: str, cron: str, enabled: bool) -> None:
+        """Create or replace the connector's schedule; `enabled` false keeps it paused."""
+        schedule = Schedule(
+            action=ScheduleActionStartWorkflow(
+                SyncConnectorWorkflow.run,
+                connector,
+                id=f"sync:{connector}:scheduled",  # Temporal appends the fire time
+                task_queue=TASK_QUEUE,
+            ),
+            spec=ScheduleSpec(cron_expressions=[cron]),
+            state=ScheduleState(
+                note="managed by POST /sync/connectors/{name}/schedule", paused=not enabled
+            ),
+        )
+        try:
+            await self._client.create_schedule(schedule_id(connector), schedule)
+        except ScheduleAlreadyRunningError:
+            handle = self._client.get_schedule_handle(schedule_id(connector))
+            await handle.update(lambda _: ScheduleUpdate(schedule=schedule))
+
+    async def schedule_info(self, connector: str) -> dict[str, Any] | None:
+        handle = self._client.get_schedule_handle(schedule_id(connector))
+        try:
+            description = await handle.describe()
+        except RPCError as exc:
+            if exc.status == RPCStatusCode.NOT_FOUND:
+                return None
+            raise
+        upcoming = description.info.next_action_times
+        return {  # the cron itself lives in the row; Temporal stores it as a calendar spec
+            "paused": description.schedule.state.paused,
+            "next_run_at": upcoming[0].isoformat() if upcoming else None,
+            "runs": description.info.num_actions,
+        }
 
 
 async def _ignore_closed(call: Awaitable[None]) -> None:

@@ -5,6 +5,7 @@ const LINKS = [
   ["/templates", "Templates"],
   ["/messages", "Messages"],
   ["/journeys", "Journeys"],
+  ["/sync", "Sync"],
 ] as const;
 
 /** The panel's top bar; `current` marks the section, `email` shows who is signed in. */

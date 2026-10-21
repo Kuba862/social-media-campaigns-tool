@@ -11,9 +11,11 @@ from meta_client import MetaClient
 from storage.postgrest import PostgrestClient
 from worker.activities.hello import say_hello
 from worker.activities.journey import JourneyActivities
+from worker.activities.sync import SyncActivities
 from worker.settings import load_settings
 from worker.workflows.hello import HelloWorkflow
 from worker.workflows.journey import TASK_QUEUE, JourneyWorkflow
+from worker.workflows.sync import SyncConnectorWorkflow
 
 
 async def main() -> None:
@@ -48,8 +50,8 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue=TASK_QUEUE,
-        workflows=[HelloWorkflow, JourneyWorkflow],
-        activities=[say_hello, *journey.all()],
+        workflows=[HelloWorkflow, JourneyWorkflow, SyncConnectorWorkflow],
+        activities=[say_hello, *journey.all(), *SyncActivities(db).all()],
     )
     logging.info("worker ready on %s, task queue %s", settings.temporal_address, TASK_QUEUE)
     try:
