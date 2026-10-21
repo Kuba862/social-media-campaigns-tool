@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from api.auth import current_user
 from api.db import Database, Row
 from api.deps import Db, Runs
-from api.temporal import RunAlreadyActive
 from core.journey_schema import JourneyDefinition
 from core.validation import validate
 from storage.postgrest import ConflictError
@@ -142,7 +141,10 @@ async def publish_version(
 
 @router.post("/{journey_id}/runs", status_code=status.HTTP_201_CREATED)
 async def start_runs(journey_id: str, body: StartRuns, db: Db, runs: Runs) -> dict[str, list[str]]:
-    """One run per contact on the latest published version; a contact already in is skipped."""
+    """One queued run per contact on the latest published version; the worker starts them.
+
+    A contact already queued or running in this journey is skipped (partial unique index).
+    """
     journey = await _journey(db, journey_id)
     published = [v for v in await _versions(db, journey_id) if v.get("published_at")]
     if journey["status"] != "active" or not published:
@@ -161,24 +163,17 @@ async def start_runs(journey_id: str, body: StartRuns, db: Db, runs: Runs) -> di
                     "journey_version_id": latest["id"],
                     "contact_id": contact_id,
                     "workflow_id": workflow_id,
-                    "status": "running",
+                    "status": "queued",
                     "current_node_id": "start",
                 },
             )
         except ConflictError:
             skipped.append(contact_id)
             continue
-        try:
-            await runs.start(
-                workflow_id,
-                JourneyRunInput(
-                    run["id"], journey_id, latest["id"], contact_id, latest["definition"]
-                ),
-            )
-        except RunAlreadyActive:
-            await db.update("journey_runs", run["id"], {"status": "cancelled", "ended_at": _now()})
-            skipped.append(contact_id)
-            continue
+        await runs.start(
+            workflow_id,
+            JourneyRunInput(run["id"], journey_id, latest["id"], contact_id, latest["definition"]),
+        )
         started.append(run["id"])
     return {"started": started, "skipped": skipped, "unknown": unknown}
 
@@ -192,17 +187,19 @@ async def list_runs(journey_id: str, db: Db) -> list[Row]:
 
 @runs_router.get("/{run_id}")
 async def get_run(run_id: str, db: Db, runs: Runs) -> Row:
-    """The stored row, plus the live node and waiting reason while the workflow runs."""
+    """The stored row, plus the live node and waiting reason when the engine can tell."""
     row = await _run(db, run_id)
     if row["status"] == "running":
-        row = {**row, "live": await runs.state(row["workflow_id"])}
+        live = await runs.state(row["workflow_id"])
+        if live:
+            row = {**row, "live": live}
     return row
 
 
 @runs_router.post("/{run_id}/cancel")
 async def cancel_run(run_id: str, db: Db, runs: Runs) -> Row:
     row = await _run(db, run_id)
-    if row["status"] != "running":
+    if row["status"] not in ("queued", "running"):
         raise HTTPException(status.HTTP_409_CONFLICT, f"run is {row['status']}, not running")
     await runs.cancel(row["workflow_id"])
     return await db.update("journey_runs", run_id, {"status": "cancelled", "ended_at": _now()})

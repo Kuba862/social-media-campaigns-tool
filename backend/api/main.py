@@ -38,7 +38,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.meta_system_user_token
         else None
     )
-    app.state.runs = None
     try:
         yield
     finally:

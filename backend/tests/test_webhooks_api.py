@@ -178,23 +178,3 @@ def test_status_signals_the_message_run_and_temporal_outage_still_persists(
     assert [m["wamid"] for m in db.rows("inbound_messages")] == ["wamid.IN1", "wamid.IN2"]
     assert [c["status"] for c in db.rows("consents")] == ["opted_out"]
     assert len(temporal.signals) == 1  # nothing new, the inbound was only stored
-
-
-def test_temporal_connect_failure_is_an_outage_not_an_error(
-    monkeypatch: pytest.MonkeyPatch, db: FakeDb
-) -> None:
-    """The SDK raises RuntimeError when it cannot connect; the webhook must still answer 200."""
-    base_env(monkeypatch)
-    monkeypatch.setenv("META_APP_SECRET", SECRET)
-    monkeypatch.setenv("META_WEBHOOK_VERIFY_TOKEN", VERIFY_TOKEN)
-
-    async def failing_connect(settings: object) -> None:
-        raise RuntimeError("Failed client connect: Server connection error")
-
-    monkeypatch.setattr("api.deps.connect", failing_connect)
-    app.dependency_overrides[get_db] = lambda: db  # get_runs_or_none runs for real
-    with TestClient(app) as client:
-        raw = body("webhook_inbound.json")
-        assert client.post("/webhooks/meta", content=raw, headers=signed(raw)).status_code == 200
-    app.dependency_overrides.clear()
-    assert [m["wamid"] for m in db.rows("inbound_messages")] == ["wamid.IN1", "wamid.IN2"]

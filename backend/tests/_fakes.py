@@ -2,7 +2,6 @@
 
 from typing import Any
 
-from api.temporal import RunAlreadyActive
 from meta_client import (
     CreatedTemplate,
     MetaError,
@@ -12,6 +11,7 @@ from meta_client import (
     TemplateState,
 )
 from storage.postgrest import ConflictError, NotFoundError, StorageUnavailable
+from worker.temporal_runs import RunAlreadyActive
 from worker.workflows.journey import JourneyRunInput, ReplySignal
 
 Row = dict[str, Any]
@@ -33,7 +33,12 @@ class FakeDb:
 
         def matches(row: Row) -> bool:
             for key, value in filters.items():
-                if value.startswith("in.("):
+                if key in ("order", "limit"):
+                    continue
+                if value == "is.null":
+                    if row.get(key) is not None:
+                        return False
+                elif value.startswith("in.("):
                     wanted = [item.strip('"') for item in value[4:-1].split(",")]
                     if str(row.get(key)) not in wanted:
                         return False
@@ -51,7 +56,7 @@ class FakeDb:
         if table == "journey_runs" and any(
             r["journey_id"] == row["journey_id"]
             and r["contact_id"] == row["contact_id"]
-            and r["status"] == "running"
+            and r["status"] in ("queued", "running")
             for r in self.rows(table)
         ):
             raise ConflictError("duplicate key value violates unique constraint")

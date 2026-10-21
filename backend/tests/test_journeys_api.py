@@ -114,16 +114,6 @@ def test_start_by_phone_resolves_contacts_and_reports_unknown_numbers(
     assert client.post(f"/journeys/{journey_id}/runs", json={}).status_code == 422
 
 
-def test_temporal_refusal_marks_the_row_cancelled(
-    client: TestClient, db: FakeDb, temporal: FakeTemporal, guide_example_json: dict[str, Any]
-) -> None:
-    journey_id = published(client, guide_example_json)
-    temporal.active.add(f"journey:{journey_id}:contact:c-1")  # a run Temporal still knows about
-    result = client.post(f"/journeys/{journey_id}/runs", json={"contact_ids": ["c-1"]}).json()
-    assert result == {"started": [], "skipped": ["c-1"], "unknown": []}
-    assert db.rows("journey_runs")[0]["status"] == "cancelled"
-
-
 def test_start_needs_a_published_version(client: TestClient) -> None:
     journey_id = client.post("/journeys", json={"name": "draft only"}).json()["id"]
     assert (
@@ -146,7 +136,8 @@ def test_list_get_and_cancel_runs(
         "started"
     ][0]
     runs = client.get(f"/journeys/{journey_id}/runs").json()
-    assert [r["status"] for r in runs] == ["running"]
+    assert [r["status"] for r in runs] == ["queued"]  # the worker's dispatcher makes it running
+    db.rows("journey_runs")[0]["status"] = "running"
     live = client.get(f"/runs/{run_id}").json()
     assert live["live"] == {"node_id": "n2", "waiting": "sleep"}
     cancelled = client.post(f"/runs/{run_id}/cancel")
