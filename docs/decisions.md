@@ -223,6 +223,22 @@ Konsekwencje: status wiadomości może cofnąć się z `read` na `delivered`, gd
 w złej kolejności; sygnały `message_status`, `reply` i `opt_out` do workflow dojdą w fazie 3,
 w tym samym miejscu po zapisie. Testy tras używają wspólnej podróbki bazy z `tests/_fakes.py`.
 
+### 18. Wysyłka testowa: strażnik numerów w `core`, zgoda z listy testowej, `accepted` jako `sent` (2026-10-21)
+
+Decyzja: `POST /messages/test` wysyła jeden zatwierdzony szablon na numer z `WA_ALLOWED_TEST_RECIPIENTS`.
+Reguły "komu wolno wysłać" (`core/sending.py`) i "czy jest zgoda" (`core/consent.py`) są czystymi
+funkcjami, które w fazie 3 przejmie aktywność `send_template` workera. Numer z listy testowej dostaje
+przy pierwszej wysyłce zgodę `opted_in` ze źródłem `test_allowlist`, bo to nasze własne numery.
+Wiersz w `messages` powstaje przed wywołaniem Meta z kluczem `test:<uuid>` i pustym `run_id`
+(migracja zdejmuje `NOT NULL`); odpowiedź Meta `accepted` zapisujemy jako nasz status `sent`, bo
+ograniczenie kolumny nie zna `accepted`, a webhook `sent` i tak przychodzi chwilę później.
+`WA_SEND_MODE` spoza {`test`, `live`} zatrzymuje start API.
+Powód: strażnik w `core` jest testowalny bez I/O i wspólny dla API i workera; zgoda z listy
+testowej pozwala sprawdzić kryterium 6 briefu bez konektora; `GET /messages` korzysta z osadzania
+tabel przez PostgREST zamiast własnego JOIN-a.
+Konsekwencje: prawdziwe zgody przyjdą z konektora w fazie 4; panel i log to krok 4b; wysyłkę na
+żywo da się sprawdzić dopiero z tokenem Meta i numerem testowym.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

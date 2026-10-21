@@ -20,9 +20,9 @@ class Database:
             "Prefer": "return=representation",
         }
 
-    async def select(self, table: str, **filters: str) -> list[Row]:
-        """Filters use PostgREST syntax: id="eq.<uuid>", status="eq.DRAFT"."""
-        params = {"select": "*", "order": "created_at.desc", **filters}
+    async def select(self, table: str, columns: str = "*", **filters: str) -> list[Row]:
+        """PostgREST filters: id="eq.<uuid>"; columns may embed FK tables: "*,templates(name)"."""
+        params = {"select": columns, "order": "created_at.desc", **filters}
         return await self._rows("GET", table, params=params)
 
     async def insert(self, table: str, row: Row) -> Row:
