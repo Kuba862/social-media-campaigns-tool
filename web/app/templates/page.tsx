@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { TemplateRow } from "@/lib/templates";
-import { createTemplate, submitTemplate, syncTemplate } from "./actions";
+import { createTemplate, sendTest, submitTemplate, syncTemplate } from "./actions";
 
 async function loadTemplates(): Promise<{ rows: TemplateRow[]; problem: string | null }> {
   try {
@@ -23,7 +23,7 @@ export default async function TemplatesPage({
   return (
     <main>
       <p>
-        <Link href="/">Home</Link>
+        <Link href="/">Home</Link> | <Link href="/messages">Messages</Link>
       </p>
       <h1>Templates</h1>
       {message && <p role="alert">{message}</p>}
@@ -36,6 +36,7 @@ export default async function TemplatesPage({
             <th>Status</th>
             <th>Meta id</th>
             <th>Action</th>
+            <th>Test send</th>
           </tr>
         </thead>
         <tbody>
@@ -54,6 +55,21 @@ export default async function TemplatesPage({
                   <input type="hidden" name="id" value={row.id} />
                   <button type="submit">{row.status === "DRAFT" ? "Submit" : "Sync"}</button>
                 </form>
+              </td>
+              <td>
+                {row.status === "APPROVED" && (
+                  <form action={sendTest}>
+                    <input type="hidden" name="template_id" value={row.id} />
+                    <input
+                      name="to_e164"
+                      placeholder="+48..."
+                      required
+                      pattern="\+[1-9][0-9]{6,14}"
+                    />
+                    <input name="body_values" placeholder="values, comma-separated" />
+                    <button type="submit">Send test</button>
+                  </form>
+                )}
               </td>
             </tr>
           ))}

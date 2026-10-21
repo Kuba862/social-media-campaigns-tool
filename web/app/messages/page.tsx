@@ -1,0 +1,50 @@
+import Link from "next/link";
+import { ApiError, apiFetch } from "@/lib/api";
+import { eventLabels, type MessageRow } from "@/lib/messages";
+
+async function loadMessages(): Promise<{ rows: MessageRow[]; problem: string | null }> {
+  try {
+    return { rows: await apiFetch<MessageRow[]>("/messages"), problem: null };
+  } catch (error) {
+    const problem = error instanceof ApiError ? error.message : "API is not reachable";
+    return { rows: [], problem };
+  }
+}
+
+export default async function MessagesPage() {
+  const { rows, problem } = await loadMessages();
+  return (
+    <main>
+      <p>
+        <Link href="/">Home</Link> | <Link href="/templates">Templates</Link>
+      </p>
+      <h1>Messages</h1>
+      {problem && <p role="alert">{problem}</p>}
+      <table>
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Template</th>
+            <th>To</th>
+            <th>Status</th>
+            <th>Events</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.created_at.slice(0, 19).replace("T", " ")}</td>
+              <td>{row.templates ? `${row.templates.name} (${row.templates.language})` : "-"}</td>
+              <td>{row.contacts?.phone_e164 ?? "-"}</td>
+              <td>{row.status}</td>
+              <td>{eventLabels(row.message_events).join(", ") || "-"}</td>
+              <td>{row.error?.message ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rows.length === 0 && <p>No messages yet.</p>}
+    </main>
+  );
+}
