@@ -252,6 +252,19 @@ okazji test przechodzi przez cały łańcuch: przeglądarka, serwer Next, API, P
 Konsekwencje: asercje e2e nie mogą zakładać pustej bazy (log może mieć wiersze z wcześniejszych
 prób); sekrety e2e są jawnie testowe i nigdy nie trafiają do repo poza stałą w teście.
 
+### 20. Klient PostgREST w pakiecie `storage`, wspólny dla API i workera (2026-10-21)
+
+Decyzja: `storage/postgrest.py` to jedyny kod, który rozmawia z PostgREST; API trzyma w `api/db.py`
+cienką podklasę zasilaną z `Settings`, a worker dostanie ten sam klient w aktywnościach. Błędy mają
+własne klasy: `StorageUnavailable` (brak połączenia), `StorageRequestError` z kodem i polem
+`transient` (5xx), `ConflictError`, `NotFoundError`. API mapuje je na 503, 502, 409 i 404 w jednym
+handlerze w `main.py`; trasy nie znają już kodów bazy.
+Powód: aktywność Temporal decyduje o ponowieniu po typie wyjątku, nie po kodzie HTTP, a jeden
+klient oznacza jedną wiedzę o nagłówkach `Prefer`, `on_conflict` i osadzaniu tabel.
+Konsekwencje: nowy pakiet najwyższego poziomu `storage` obok `core`, `api`, `worker`,
+`meta_client`, `sync`; `core` nadal niczego z niego nie importuje; podróbka bazy w testach rzuca
+te same klasy, a prawdziwy klient ma od tego kroku własne testy jednostkowe.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

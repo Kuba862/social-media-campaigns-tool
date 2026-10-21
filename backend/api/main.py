@@ -4,7 +4,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from api.auth import CurrentUser
 from api.db import Database
@@ -13,6 +14,7 @@ from api.routes.templates import router as templates_router
 from api.routes.webhooks_meta import router as webhooks_router
 from api.settings import load_settings
 from meta_client import MetaClient
+from storage.postgrest import ConflictError, NotFoundError, StorageError, StorageUnavailable
 
 
 @asynccontextmanager
@@ -43,6 +45,19 @@ app = FastAPI(title="WhatsApp campaigns API", lifespan=lifespan)
 app.include_router(templates_router)
 app.include_router(webhooks_router)
 app.include_router(messages_router)
+
+STORAGE_STATUS: dict[type[StorageError], int] = {
+    ConflictError: 409,
+    NotFoundError: 404,
+    StorageUnavailable: 503,
+}
+
+
+@app.exception_handler(StorageError)
+async def storage_error(request: Request, exc: StorageError) -> JSONResponse:
+    """Storage errors keep their old HTTP meaning; anything else from PostgREST is a 502."""
+    code = next((code for kind, code in STORAGE_STATUS.items() if isinstance(exc, kind)), 502)
+    return JSONResponse(status_code=code, content={"detail": str(exc)})
 
 
 @app.get("/healthz")
