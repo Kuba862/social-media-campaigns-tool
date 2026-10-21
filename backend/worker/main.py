@@ -13,9 +13,7 @@ from worker.activities.hello import say_hello
 from worker.activities.journey import JourneyActivities
 from worker.settings import load_settings
 from worker.workflows.hello import HelloWorkflow
-from worker.workflows.journey import JourneyWorkflow
-
-TASK_QUEUE = "wa-journeys"
+from worker.workflows.journey import TASK_QUEUE, JourneyWorkflow
 
 
 async def main() -> None:

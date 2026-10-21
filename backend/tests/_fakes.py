@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from api.temporal import RunAlreadyActive
 from meta_client import (
     CreatedTemplate,
     MetaError,
@@ -11,6 +12,7 @@ from meta_client import (
     TemplateState,
 )
 from storage.postgrest import ConflictError, NotFoundError
+from worker.workflows.journey import JourneyRunInput
 
 Row = dict[str, Any]
 
@@ -32,6 +34,13 @@ class FakeDb:
     async def insert(self, table: str, row: Row) -> Row:
         if table == "templates" and any(
             r["name"] == row["name"] and r["language"] == row["language"] for r in self.rows(table)
+        ):
+            raise ConflictError("duplicate key value violates unique constraint")
+        if table == "journey_runs" and any(
+            r["journey_id"] == row["journey_id"]
+            and r["contact_id"] == row["contact_id"]
+            and r["status"] == "running"
+            for r in self.rows(table)
         ):
             raise ConflictError("duplicate key value violates unique constraint")
         return self._store(table, row)
@@ -99,3 +108,25 @@ class FakeMeta:
             raise self.send_error
         self.sent.append((to_e164, template_name, language, body_values))
         return SendResult(wamid=f"wamid.T{len(self.sent)}", status="accepted")
+
+
+class FakeTemporal:
+    """Stand-in for api.temporal.TemporalJourneyRuns: records starts and cancels."""
+
+    def __init__(self) -> None:
+        self.started: list[tuple[str, JourneyRunInput]] = []
+        self.cancelled: list[str] = []
+        self.active: set[str] = set()
+
+    async def start(self, workflow_id: str, run: JourneyRunInput) -> None:
+        if workflow_id in self.active:
+            raise RunAlreadyActive(workflow_id)
+        self.active.add(workflow_id)
+        self.started.append((workflow_id, run))
+
+    async def cancel(self, workflow_id: str) -> None:
+        self.cancelled.append(workflow_id)
+        self.active.discard(workflow_id)
+
+    async def state(self, workflow_id: str) -> dict[str, str]:
+        return {"node_id": "n2", "waiting": "sleep"}

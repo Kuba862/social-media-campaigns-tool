@@ -23,6 +23,7 @@ with workflow.unsafe.imports_passed_through():
 
 ACTIVITY_TIMEOUT = timedelta(seconds=30)
 SEND_RETRY = RetryPolicy(initial_interval=timedelta(seconds=2), maximum_attempts=5)
+TASK_QUEUE = "wa-journeys"
 
 
 @dataclass(frozen=True)
