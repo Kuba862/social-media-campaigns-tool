@@ -343,7 +343,8 @@ należy wiadomość. Adresatami są wyłącznie wiersze `journey_runs` ze status
 Mety (konflikt `wamid`) nie wysyła nic. Sygnały są "best effort": zapis jest pierwszy, błąd RPC
 Temporal jest logowany, a Meta i tak dostaje 200; brak połączenia z Temporal (`OptionalRuns` daje
 `None`) nie blokuje zapisu. Sygnał do zamkniętego lub nieznanego workflow (NOT_FOUND) jest
-ignorowany w `TemporalJourneyRuns`.
+ignorowany w `TemporalJourneyRuns`. Nieudane połączenie SDK zgłasza jako `RuntimeError`, nie
+`RPCError`; `get_runs` łapie oba (poprawka po 5e: e2e panelu bez Temporal dostało z webhooka 500).
 Powód: sekcja 4.2 wymaga, by odpowiedź docierała do właściwego przebiegu, a opt-out kończył
 wszystkie; webhook musi odpowiadać szybko i nie może zależeć od Temporal, bo Meta ponawia
 dostarczenie przy błędzie, a ponowienie nie naprawiłoby sygnału, skoro zapis już jest.
