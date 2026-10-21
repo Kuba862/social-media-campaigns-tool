@@ -136,6 +136,9 @@ Jeśli `gcloud` odmówi wdrożenia z powodu konta usługi, dopisz do kroku `depl
 
 ## Rozwiązywanie problemów
 
+- `the --mount option requires BuildKit` w kroku `build`: krok dockera w `cloudbuild.yaml` musi mieć
+  `env: ["DOCKER_BUILDKIT=1"]` (jest od 2026-10-21); `Dockerfile` używa `RUN --mount`, `COPY --chmod`
+  i `ARG TARGETARCH`, które działają tylko z BuildKitem.
 - Build pada na `push`: brak roli Artifact Registry Writer dla konta Cloud Build.
 - Deploy pada na sekretach: sekret nie istnieje albo `wa-worker` nie ma roli Secret Accessor.
 - Log `embedded Temporal did not start`: za mało pamięci w instancji; zostaw 1 GiB.
