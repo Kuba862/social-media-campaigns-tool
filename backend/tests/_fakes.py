@@ -1,15 +1,22 @@
-"""Test doubles shared by the API route tests."""
+"""Test doubles shared by the API route tests and the worker tests."""
 
 from typing import Any
 
-from meta_client import CreatedTemplate, MetaError, SendResult, TemplateSpec, TemplateState
+from meta_client import (
+    CreatedTemplate,
+    MetaError,
+    MetaTransientError,
+    SendResult,
+    TemplateSpec,
+    TemplateState,
+)
 from storage.postgrest import ConflictError, NotFoundError
 
 Row = dict[str, Any]
 
 
 class FakeDb:
-    """In-memory stand-in for api.db.Database, enough for the routes' needs."""
+    """In-memory stand-in for storage.postgrest.PostgrestClient, enough for the callers' needs."""
 
     def __init__(self) -> None:
         self.tables: dict[str, list[Row]] = {}
@@ -68,6 +75,7 @@ class FakeMeta:
     def __init__(self) -> None:
         self.create_error: MetaError | None = None
         self.send_error: MetaError | None = None
+        self.transient_failures = 0  # how many send attempts fail with a transient error first
         self.state: TemplateState | None = TemplateState(meta_template_id="m-1", status="APPROVED")
         self.created: list[TemplateSpec] = []
         self.sent: list[tuple[str, str, str, list[str]]] = []
@@ -84,6 +92,9 @@ class FakeMeta:
     async def send_template(
         self, to_e164: str, template_name: str, language: str, body_values: list[str]
     ) -> SendResult:
+        if self.transient_failures > 0:
+            self.transient_failures -= 1
+            raise MetaTransientError("Meta 400: (#130429) Rate limit hit", code=130429)
         if self.send_error is not None:
             raise self.send_error
         self.sent.append((to_e164, template_name, language, body_values))

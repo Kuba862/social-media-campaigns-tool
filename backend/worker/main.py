@@ -13,6 +13,7 @@ from worker.activities.hello import say_hello
 from worker.activities.journey import JourneyActivities
 from worker.settings import load_settings
 from worker.workflows.hello import HelloWorkflow
+from worker.workflows.journey import JourneyWorkflow
 
 TASK_QUEUE = "wa-journeys"
 
@@ -49,7 +50,7 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue=TASK_QUEUE,
-        workflows=[HelloWorkflow],
+        workflows=[HelloWorkflow, JourneyWorkflow],
         activities=[say_hello, *journey.all()],
     )
     logging.info("worker ready on %s, task queue %s", settings.temporal_address, TASK_QUEUE)
