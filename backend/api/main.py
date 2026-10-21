@@ -12,6 +12,7 @@ from api.db import Database
 from api.routes.journeys import router as journeys_router
 from api.routes.journeys import runs_router
 from api.routes.messages import router as messages_router
+from api.routes.sync import router as sync_router
 from api.routes.templates import router as templates_router
 from api.routes.webhooks_meta import router as webhooks_router
 from api.settings import load_settings
@@ -50,6 +51,7 @@ app.include_router(webhooks_router)
 app.include_router(messages_router)
 app.include_router(journeys_router)
 app.include_router(runs_router)
+app.include_router(sync_router)
 
 STORAGE_STATUS: dict[type[StorageError], int] = {
     ConflictError: 409,

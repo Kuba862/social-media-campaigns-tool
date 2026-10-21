@@ -138,6 +138,8 @@ class FakeTemporal:
         self.cancelled: list[str] = []
         self.active: set[str] = set()
         self.signals: list[tuple[str, str, object]] = []  # (workflow_id, signal name, payload)
+        self.sync_started: list[str] = []
+        self.schedules: dict[str, tuple[str, bool]] = {}  # connector -> (cron, enabled)
 
     async def start(self, workflow_id: str, run: JourneyRunInput) -> None:
         if workflow_id in self.active:
@@ -160,3 +162,22 @@ class FakeTemporal:
 
     async def signal_status(self, workflow_id: str, status: dict[str, Any]) -> None:
         self.signals.append((workflow_id, "message_status", status))
+
+    async def start_sync(self, connector: str) -> str:
+        workflow_id = f"sync:{connector}:manual-{len(self.sync_started) + 1}"
+        self.sync_started.append(workflow_id)
+        return workflow_id
+
+    async def apply_schedule(self, connector: str, cron: str, enabled: bool) -> None:
+        self.schedules[connector] = (cron, enabled)
+
+    async def schedule_info(self, connector: str) -> dict[str, Any] | None:
+        if connector not in self.schedules:
+            return None
+        cron, enabled = self.schedules[connector]
+        return {
+            "paused": not enabled,
+            "cron": [cron],
+            "next_run_at": "2026-10-22T00:00:00+00:00",
+            "runs": 0,
+        }

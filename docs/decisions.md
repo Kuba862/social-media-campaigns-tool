@@ -565,6 +565,26 @@ Konsekwencje: `psycopg[binary]` to nowa zależność; worker potrzebuje dostępu
 źródłowej; przy `attributes` i `columns` błędna nazwa kolumny kończy się błędem SQL w pierwszej
 próbie ekstrakcji, który trafia do `sync_runs.error`.
 
+### 36. API synchronizacji: wiersz konektora jest źródłem harmonogramu, Temporal Schedule nakładany na żądanie (2026-10-21)
+
+Decyzja: `PUT /sync/connectors/{name}` zakłada albo nadpisuje wiersz `sync_connectors` (nazwa musi
+istnieć w rejestrze konektorów, cron musi mieć pięć pól; `config` bez sekretów).
+`POST /sync/connectors/{name}/schedule` tworzy lub podmienia Temporal Schedule `sync:{name}`
+z cronem i flagą `enabled` z wiersza (`enabled=false` to harmonogram wstrzymany, nie usunięty),
+więc baza jest źródłem prawdy, a Temporal odbiciem, które nakłada się świadomie, nie przy
+każdym zapisie. `POST /sync/connectors/{name}/run` startuje workflow od ręki z identyfikatorem
+`sync:{name}:manual-…` i nie czeka na wynik (202). `GET /sync/connectors` dokłada do wierszy
+stan harmonogramu z Temporal (pauza, cron, następne uruchomienie, liczba uruchomień), a bez
+Temporal zwraca `schedule: null`. `GET /sync/runs?connector=` listuje przebiegi z nazwą
+konektora. Jeden klient Temporal obsługuje journeys i synchronizację (`AllRuns`).
+Powód: sekcja 5: każdy konektor działa jako workflow na harmonogramie z `schedule_cron`;
+rozdzielenie zapisu wiersza od nałożenia harmonogramu pozwala przygotować konfigurację bez
+Temporal (np. w CI) i daje jawny moment, w którym harmonogram rusza.
+Konsekwencje: zmiana crona w wierszu nie działa, dopóki ktoś nie nałoży harmonogramu ponownie
+(panel w 7e ma na to przycisk); polityka nakładania się przebiegów to domyślne "pomiń", więc
+przebieg trwający dłużej niż interwał nie dubluje się; harmonogram na lokalnym serwerze dev
+znika z jego restartem (dane w pamięci).
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
