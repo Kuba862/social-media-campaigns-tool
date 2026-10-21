@@ -60,6 +60,28 @@ export function toGraph(
   return { nodes, edges };
 }
 
+/** Handle -> target for a node's current outgoing edges. */
+export function targetsOf(nodeId: string, edges: JourneyEdge[]): Record<string, string> {
+  const targets: Record<string, string> = {};
+  for (const edge of edges) {
+    if (edge.source === nodeId) targets[edge.sourceHandle ?? NEXT] = edge.target;
+  }
+  return targets;
+}
+
+/** Replace a node's outgoing edges with the given handle -> target map ("" means none). */
+export function withTargets(
+  edges: JourneyEdge[],
+  nodeId: string,
+  targets: Record<string, string>,
+): JourneyEdge[] {
+  const kept = edges.filter((edge) => edge.source !== nodeId);
+  const added = Object.entries(targets)
+    .filter(([, target]) => target !== "")
+    .map(([handle, target]) => flowEdge(nodeId, handle, target));
+  return [...kept, ...added];
+}
+
 /** The inverse of toGraph: what the editor saves as the draft. Positions are rounded. */
 export function fromGraph(
   nodes: JourneyNode[],

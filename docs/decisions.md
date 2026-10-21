@@ -441,6 +441,27 @@ Konsekwencje: usunięcie węzła czyści wskazania `next`/`else`, które do nieg
 są zaokrąglane do całych pikseli; e2e `editor.spec.ts` dodaje węzeł przyciskiem i zapisuje, bez
 przeciągania krawędzi (to zostaje w 6e przez pole "następny węzeł" w panelu).
 
+### 30. Panel węzła: formularz na typ, cele uchwytów w panelu, czasy jako liczba i jednostka (2026-10-21)
+
+Decyzja: po kliknięciu węzła edytor pokazuje panel boczny z osobnym formularzem na typ
+(`react-hook-form` + `zod`, resolver `@hookform/resolvers`, wybory z sekcji 1 instrukcji). Czyste
+funkcje w `web/lib/node-forms.ts` tłumaczą węzeł i jego cele uchwytów na wartości formularza
+i z powrotem (`xDefaults`, `xApply`), więc komponenty nie zawierają logiki i są testowane
+Vitestem. Każdy formularz ma pola "dokąd dalej" dla uchwytów węzła (`next`, `replied`/`timeout`,
+po jednym na warunek i `else`), a Apply przebudowuje krawędzie wychodzące węzła (`withTargets`),
+więc panel jest pełnoprawną alternatywą dla przeciągania krawędzi. Czas w `wait` i `wait_for_reply`
+to liczba plus jednostka (minuty, godziny, dni) tłumaczona na ISO 8601 (`P2D`, `PT3H`, `PT45M`);
+nietypowy zapis (`PT1H30M`) pokazuje się w minutach. `send_template` wybiera tylko zatwierdzony
+szablon, a liczba pól zmiennych wynika z najwyższego `{{n}}` w treści szablonu; zmienna to ścieżka
+w kontekście (`contact.first_name`). Warunek `branch` to para ścieżka = wartość (tekst); `set`
+w `update_contact` to pary klucz = wartość (tekst). Identyfikator węzła nie jest edytowalny.
+Powód: definicja jest źródłem prawdy, więc formularz musi mapować się na nią jeden do jednego;
+użytkownik myśli "2 dni", silnik czyta `P2D`.
+Konsekwencje: warunek z kilkoma kluczami w `if` traci w panelu wszystkie poza pierwszym (edytor
+tworzy tylko jednokluczowe); wartości warunków i `set` są tekstem (bool i liczby zostają
+w "Later"); szablony spoza panelu mogą mieć `components` w innym kształcie (`[]`, lista Mety),
+więc treść czytana jest defensywnie i taki szablon ma zero zmiennych.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

@@ -20,9 +20,19 @@ import {
   type Layout,
   type NodeType,
 } from "@/lib/journey-definition";
-import { fromGraph, NEXT, toGraph, type JourneyEdge, type JourneyNode } from "@/lib/journey-graph";
+import {
+  fromGraph,
+  NEXT,
+  targetsOf,
+  toGraph,
+  withTargets,
+  type JourneyEdge,
+  type JourneyNode,
+} from "@/lib/journey-graph";
+import type { Applied, TemplateOption } from "@/lib/node-forms";
 import { saveDraft, type SaveResult } from "./actions";
 import { JourneyNodeView } from "./journey-node";
+import { NodePanel } from "./node-panel";
 
 const nodeTypes: NodeTypes = { journey: JourneyNodeView };
 
@@ -30,16 +40,19 @@ export function Editor({
   journeyId,
   definition,
   layout,
+  templates,
 }: {
   journeyId: string;
   definition: Definition;
   layout: Layout;
+  templates: TemplateOption[];
 }) {
   const [initial] = useState(() => toGraph(definition, layout));
   const [nodes, setNodes, onNodesChange] = useNodesState<JourneyNode>(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<JourneyEdge>(initial.edges);
   const [result, setResult] = useState<SaveResult | null>(null);
   const [saving, startSaving] = useTransition();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   /** A source handle leads to one node: connecting again replaces the previous edge. */
   const onConnect = useCallback(
@@ -58,6 +71,25 @@ export function Editor({
     [setEdges],
   );
 
+  const onSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: { id: string }[] }) => setSelectedId(selected[0]?.id ?? null),
+    [],
+  );
+
+  /** The side panel's Apply: new node data, and the node's outgoing edges rebuilt from it. */
+  function apply(applied: Applied) {
+    setNodes((current) =>
+      current.map((node) => (node.id === applied.node.id ? { ...node, data: applied.node } : node)),
+    );
+    setEdges((current) => withTargets(current, applied.node.id, applied.targets));
+  }
+
+  function remove(id: string) {
+    setNodes((current) => current.filter((node) => node.id !== id));
+    setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));
+    setSelectedId(null);
+  }
+
   function add(type: NodeType) {
     setNodes((current) => {
       const id = nextId(current, type);
@@ -74,6 +106,10 @@ export function Editor({
   }
 
   const hasStart = nodes.some((node) => node.data.type === "start");
+  const selected = nodes.find((node) => node.id === selectedId);
+  const targetOptions = nodes
+    .filter((node) => node.id !== selectedId && node.data.type !== "start")
+    .map((node) => node.id);
   return (
     <>
       <p>
@@ -94,24 +130,42 @@ export function Editor({
       <p role="status">
         {result === null ? "" : result.ok ? `Draft v${result.version} saved` : result.error}
       </p>
-      <div style={{ height: "70vh", border: "1px solid #ccc" }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          deleteKeyCode={["Backspace", "Delete"]}
-          fitView
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
+      <div style={{ display: "flex", gap: 16 }}>
+        <div style={{ flex: 1, height: "70vh", border: "1px solid #ccc" }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onSelectionChange={onSelectionChange}
+            deleteKeyCode={["Backspace", "Delete"]}
+            fitView
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
+        {selected ? (
+          <NodePanel
+            key={selected.id}
+            node={selected}
+            targets={targetsOf(selected.id, edges)}
+            options={targetOptions}
+            templates={templates}
+            onApply={apply}
+            onDelete={remove}
+          />
+        ) : (
+          <aside style={{ width: 320, fontSize: 14 }}>
+            <p>Click a node to configure it and choose where it leads.</p>
+          </aside>
+        )}
       </div>
       <p>
-        Drag from a node&apos;s right handle to another node&apos;s left handle to connect them;
-        select a node or edge and press Delete to remove it. Node settings come with the side panel.
+        Connect nodes in the side panel or by dragging from a right handle to a left handle; select
+        a node or edge and press Delete to remove it.
       </p>
     </>
   );
