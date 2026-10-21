@@ -546,7 +546,8 @@ wszystko jedzie na kolejce `wa-journeys`, jeden worker obsługuje journeys i syn
 
 Decyzja: `sync/connectors/postgres.py` czyta jedną tabelę lub widok w bazie, którą kontrolujemy.
 Konfiguracja w `sync_connectors.config` (bez sekretów): `table` ("schema.tabela"), `columns`
-(nasze pole → kolumna źródła, domyślnie te same nazwy, `external_ref` → `id`), `attributes`
+(nasze pole → kolumna źródła, domyślnie te same nazwy, `external_ref` → `id`; `null` wyłącza
+pole, którego źródło nie ma, wymagane są tylko `phone` i `updated_at`), `attributes`
 (dodatkowe kolumny kopiowane do `contacts.attributes`), `default_region`, `dsn_env` (nazwa
 zmiennej środowiskowej z łańcuchem połączenia, domyślnie `SYNC_POSTGRES_DSN`; w produkcji sekret
 `sync-postgres-dsn` z Secret Managera wstrzyknięty do workera). Zapytanie składane jest

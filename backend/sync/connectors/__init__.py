@@ -15,10 +15,11 @@ def _fake(config: Mapping[str, Any]) -> Connector:
 
 
 def _postgres(config: Mapping[str, Any]) -> Connector:
+    mapped = {**DEFAULT_COLUMNS, **dict(config.get("columns") or {})}
     return PostgresConnector(
         default_region=config.get("default_region"),
         table=str(config.get("table", "public.contacts_export")),
-        columns={**DEFAULT_COLUMNS, **dict(config.get("columns") or {})},
+        columns={name: column for name, column in mapped.items() if column},  # null drops a field
         attributes=tuple(config.get("attributes") or ()),
         dsn_env=str(config.get("dsn_env", "SYNC_POSTGRES_DSN")),
     )

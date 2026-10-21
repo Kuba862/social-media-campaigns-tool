@@ -16,7 +16,9 @@ from psycopg.rows import dict_row
 
 from sync.framework import ConsentChange, ContactUpsert
 
-# Our field -> source column. Only `phone` is required; the rest may be missing in the source.
+# Our field -> source column. `phone` and `updated_at` are required; map any other field to
+# null in the config when the source has no such column.
+REQUIRED_COLUMNS = ("phone", "updated_at")
 DEFAULT_COLUMNS: dict[str, str] = {
     "phone": "phone",
     "first_name": "first_name",
@@ -36,6 +38,11 @@ class PostgresConnector:
     columns: Mapping[str, str] = field(default_factory=lambda: dict(DEFAULT_COLUMNS))
     attributes: tuple[str, ...] = ()  # extra source columns copied into contacts.attributes
     dsn_env: str = "SYNC_POSTGRES_DSN"
+
+    def __post_init__(self) -> None:
+        missing = [name for name in REQUIRED_COLUMNS if name not in self.columns]
+        if missing:
+            raise ValueError(f"postgres connector needs columns for {', '.join(missing)}")
 
     def query(self, since: datetime | None) -> sql.Composed:
         """SELECT columns AS our names FROM table [WHERE updated_at > since] ORDER BY updated_at."""

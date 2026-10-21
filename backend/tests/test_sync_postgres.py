@@ -15,7 +15,7 @@ CONFIG = {
     "table": "legacy.contacts",
     "default_region": "PL",
     "attributes": ["segment"],
-    "columns": {"external_ref": "id"},
+    "columns": {"external_ref": "id", "locale": None},  # the demo table has no locale column
 }
 
 
@@ -25,7 +25,10 @@ def test_query_selects_our_names_and_filters_by_since_only_when_given() -> None:
     full = connector.query(None).as_string()
     assert full.startswith('SELECT "phone" AS "phone", "first_name" AS "first_name"')
     assert '"id" AS "external_ref"' in full and ', "segment" FROM "legacy"."contacts"' in full
+    assert '"locale"' not in full  # mapped to null in the config
     assert "WHERE" not in full and full.endswith('ORDER BY "updated_at"')
+    with pytest.raises(ValueError, match="needs columns for phone"):
+        build("postgres", {"columns": {"phone": None}})
     since = connector.query(datetime(2026, 10, 11, tzinfo=UTC)).as_string()
     assert 'WHERE "updated_at" > %(since)s ORDER BY' in since
     assert (

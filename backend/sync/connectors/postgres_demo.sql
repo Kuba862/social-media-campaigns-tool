@@ -1,6 +1,8 @@
 -- A stand-in for a legacy system, for the local demo of the postgres connector.
 -- Apply to local Supabase:  docker exec -i supabase_db_social-media-campaigns psql -U postgres -d postgres < backend/sync/connectors/postgres_demo.sql
--- Then register the connector (config without secrets) and point SYNC_POSTGRES_DSN at the database.
+-- Then register the connector (config without secrets) and point SYNC_POSTGRES_DSN at the database:
+--   insert into public.sync_connectors (name, schedule_cron, enabled, config) values ('postgres', '*/15 * * * *', true,
+--     '{"table": "legacy.contacts", "default_region": "PL", "attributes": ["segment"], "columns": {"external_ref": "id", "locale": null}}');
 create schema if not exists legacy;
 create table if not exists legacy.contacts (
   id          serial primary key,
