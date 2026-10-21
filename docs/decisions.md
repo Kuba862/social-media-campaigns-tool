@@ -542,6 +542,28 @@ Konsekwencje: lista rekordów wraca z `extract` w całości, więc bardzo duże 
 tysięcy wierszy) wymagałyby ekstrakcji stronami w kolejnych aktywnościach, czego PoC nie robi;
 wszystko jedzie na kolejce `wa-journeys`, jeden worker obsługuje journeys i synchronizację.
 
+### 35. Konektor Postgres: tabela i kolumny w konfiguracji, DSN ze środowiska, ekstrakcja w wątku (2026-10-21)
+
+Decyzja: `sync/connectors/postgres.py` czyta jedną tabelę lub widok w bazie, którą kontrolujemy.
+Konfiguracja w `sync_connectors.config` (bez sekretów): `table` ("schema.tabela"), `columns`
+(nasze pole → kolumna źródła, domyślnie te same nazwy, `external_ref` → `id`), `attributes`
+(dodatkowe kolumny kopiowane do `contacts.attributes`), `default_region`, `dsn_env` (nazwa
+zmiennej środowiskowej z łańcuchem połączenia, domyślnie `SYNC_POSTGRES_DSN`; w produkcji sekret
+`sync-postgres-dsn` z Secret Managera wstrzyknięty do workera). Zapytanie składane jest
+z `psycopg.sql.Identifier`, więc nazwy z konfiguracji nie trafiają do SQL jako tekst; `since`
+filtruje po kolumnie `updated_at`. Wartości wychodzą z konektora jako JSON-owalne typy (daty
+jako ISO), bo wracają z aktywności przez Temporal. Ekstrakcja w aktywności działa w wątku
+(`asyncio.to_thread`), bo `psycopg` blokuje; `to_thread` przenosi kontekst aktywności, więc
+heartbeat działa. Protokół `Connector` ma `name` i `default_region` jako właściwości tylko do
+odczytu, żeby zamrożone dataclassy go spełniały. Demo: `postgres_demo.sql` tworzy `legacy.contacts`
+w lokalnym Supabase; test z żywym odczytem uruchamia się tylko, gdy `SYNC_POSTGRES_DSN` jest
+ustawione (w CI jest pomijany).
+Powód: sekcja 5: jeden prawdziwy konektor z Postgresa lub CSV, konfiguracja bez sekretów,
+sekrety z Secret Managera; wybór Postgresa zamiast CSV w buckecie nie wymaga konta GCP.
+Konsekwencje: `psycopg[binary]` to nowa zależność; worker potrzebuje dostępu sieciowego do bazy
+źródłowej; przy `attributes` i `columns` błędna nazwa kolumny kończy się błędem SQL w pierwszej
+próbie ekstrakcji, który trafia do `sync_runs.error`.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

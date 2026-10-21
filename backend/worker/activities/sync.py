@@ -1,5 +1,6 @@
 """Activities of SyncConnectorWorkflow: the sync_runs row, extraction, batched writes."""
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -10,7 +11,7 @@ from temporalio.exceptions import ApplicationError
 
 from storage.postgrest import Storage
 from sync.connectors import build
-from sync.framework import SyncStats, map_records, sync_batch
+from sync.framework import Connector, SyncStats, map_records, sync_batch
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,16 @@ class FinishRun:
     status: str  # succeeded | failed
     stats: dict[str, int]
     error: str | None = None
+
+
+def _collect(connector: Connector, since: datetime | None) -> list[dict[str, Any]]:
+    """Runs in a worker thread; to_thread carries the activity context, so heartbeat works."""
+    records: list[dict[str, Any]] = []
+    for record in connector.extract(since):
+        records.append(dict(record))
+        if len(records) % 100 == 0:
+            activity.heartbeat(len(records))
+    return records
 
 
 class SyncActivities:
@@ -69,15 +80,10 @@ class SyncActivities:
 
     @activity.defn
     async def extract(self, job: SyncJob) -> list[dict[str, Any]]:
-        """Pull the source's changed records; heartbeats so a stuck source is noticed."""
+        """Pull the source's changed records in a thread (connectors block), with heartbeats."""
         connector = build(job.connector, job.config)
         since = datetime.fromisoformat(job.since) if job.since else None
-        records: list[dict[str, Any]] = []
-        for record in connector.extract(since):
-            records.append(dict(record))
-            if len(records) % 100 == 0:
-                activity.heartbeat(len(records))
-        return records
+        return await asyncio.to_thread(_collect, connector, since)
 
     @activity.defn
     async def write_batch(self, batch: WriteBatch) -> dict[str, int]:
