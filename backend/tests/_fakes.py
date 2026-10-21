@@ -12,7 +12,7 @@ from meta_client import (
     TemplateState,
 )
 from storage.postgrest import ConflictError, NotFoundError
-from worker.workflows.journey import JourneyRunInput
+from worker.workflows.journey import JourneyRunInput, ReplySignal
 
 Row = dict[str, Any]
 
@@ -111,12 +111,13 @@ class FakeMeta:
 
 
 class FakeTemporal:
-    """Stand-in for api.temporal.TemporalJourneyRuns: records starts and cancels."""
+    """Stand-in for api.temporal.TemporalJourneyRuns: records starts, cancels and signals."""
 
     def __init__(self) -> None:
         self.started: list[tuple[str, JourneyRunInput]] = []
         self.cancelled: list[str] = []
         self.active: set[str] = set()
+        self.signals: list[tuple[str, str, object]] = []  # (workflow_id, signal name, payload)
 
     async def start(self, workflow_id: str, run: JourneyRunInput) -> None:
         if workflow_id in self.active:
@@ -130,3 +131,12 @@ class FakeTemporal:
 
     async def state(self, workflow_id: str) -> dict[str, str]:
         return {"node_id": "n2", "waiting": "sleep"}
+
+    async def signal_reply(self, workflow_id: str, reply: ReplySignal) -> None:
+        self.signals.append((workflow_id, "inbound_message", reply))
+
+    async def signal_opt_out(self, workflow_id: str) -> None:
+        self.signals.append((workflow_id, "opt_out", None))
+
+    async def signal_status(self, workflow_id: str, status: dict[str, Any]) -> None:
+        self.signals.append((workflow_id, "message_status", status))

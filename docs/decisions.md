@@ -332,6 +332,27 @@ Konsekwencje: API importuje `JourneyRunInput`, `JourneyWorkflow` i `TASK_QUEUE` 
 czyli zależy od jego kontraktu; wiersz przebiegu, którego Temporal odmówił, dostaje status
 `cancelled`; segmenty jako filtr kontaktów (faza 3 w instrukcji) zostają na później.
 
+### 25. Webhook kieruje sygnały do przebiegów: po `context_wamid`, inaczej do wszystkich biegnących (2026-10-21)
+
+Decyzja: po idempotentnym zapisie webhook wysyła sygnały do `JourneyWorkflow`. Wiadomość
+przychodząca z `context` (odpowiedź na konkretną wiadomość) trafia tylko do przebiegu, który tę
+wiadomość wysłał (`messages.wamid` → `run_id`); bez `context` trafia do każdego biegnącego przebiegu
+kontaktu. Słowo opt-out, po zapisaniu zgody, wysyła dodatkowo `opt_out` do wszystkich biegnących
+przebiegów kontaktu. Status dostarczenia (`message_status`) idzie tylko do przebiegu, do którego
+należy wiadomość. Adresatami są wyłącznie wiersze `journey_runs` ze statusem `running`; duplikat od
+Mety (konflikt `wamid`) nie wysyła nic. Sygnały są "best effort": zapis jest pierwszy, błąd RPC
+Temporal jest logowany, a Meta i tak dostaje 200; brak połączenia z Temporal (`OptionalRuns` daje
+`None`) nie blokuje zapisu. Sygnał do zamkniętego lub nieznanego workflow (NOT_FOUND) jest
+ignorowany w `TemporalJourneyRuns`.
+Powód: sekcja 4.2 wymaga, by odpowiedź docierała do właściwego przebiegu, a opt-out kończył
+wszystkie; webhook musi odpowiadać szybko i nie może zależeć od Temporal, bo Meta ponawia
+dostarczenie przy błędzie, a ponowienie nie naprawiłoby sygnału, skoro zapis już jest.
+Konsekwencje: przy STOP w `wait_for_reply` przebieg dostaje najpierw `inbound_message`, potem
+`opt_out`; workflow zużywa odpowiedź, przechodzi do następnego węzła i tam kończy jako `opted_out`
+(w teście na żywo `current_node_id` = `br`). Zdarzenie, które przyszło w czasie awarii Temporal, nie
+jest sygnalizowane później (brak kolejki ponowień); taki przebieg skończy się timeoutem
+`wait_for_reply`. Wiadomość bez `run_id` (wysyłka testowa) nigdy nie sygnalizuje.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -349,3 +370,9 @@ czyli zależy od jego kontraktu; wiersz przebiegu, którego Temporal odmówił, 
   `failed` przy pierwszej odmowie Meta.
 - Start przebiegów po prostym filtrze segmentu kontaktów (np. kraj, atrybut) zamiast listy
   identyfikatorów; wersje robocze journey po stronie API, gdy edytor będzie zapisywał szkice.
+- Ponowny start zakończonego kontaktu w tej samej journey: `journey_runs.workflow_id` jest
+  unikalny, więc drugi przebieg dla tej samej pary journey+kontakt jest pomijany także po
+  zakończeniu pierwszego; identyfikator workflow z sufiksem (np. numer przebiegu) albo zdjęcie
+  unikalności.
+- Sygnały utracone w czasie awarii Temporal: kolejka ponowień (np. tabela `pending_signals`
+  opróżniana przez workera) zamiast samego ostrzeżenia w logu.

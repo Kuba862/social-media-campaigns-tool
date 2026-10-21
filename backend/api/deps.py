@@ -44,7 +44,16 @@ async def get_runs(request: Request) -> JourneyRuns:
     return runs
 
 
+async def get_runs_or_none(request: Request) -> JourneyRuns | None:
+    """For the webhook: persist first, signal if Temporal is reachable, never fail the request."""
+    try:
+        return await get_runs(request)
+    except HTTPException:
+        return None
+
+
 AppSettings = Annotated[Settings, Depends(get_settings)]
 Db = Annotated[Database, Depends(get_db)]
 Meta = Annotated[MetaClient, Depends(get_meta)]
 Runs = Annotated[JourneyRuns, Depends(get_runs)]
+OptionalRuns = Annotated[JourneyRuns | None, Depends(get_runs_or_none)]

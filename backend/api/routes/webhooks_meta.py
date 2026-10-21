@@ -1,15 +1,19 @@
 """Meta webhooks: the only unauthenticated route, protected by the X-Hub-Signature-256 check."""
 
 import json
+import logging
+from collections.abc import Awaitable
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import PlainTextResponse
+from temporalio.service import RPCError
 
 from api.db import Database, Row
-from api.deps import AppSettings, Db
+from api.deps import AppSettings, Db, OptionalRuns
 from api.settings import Settings
+from api.temporal import JourneyRuns
 from meta_client import (
     InboundMessageEvent,
     MessageStatusEvent,
@@ -17,10 +21,13 @@ from meta_client import (
     parse_webhook,
     signature_is_valid,
 )
+from worker.workflows.journey import ReplySignal
 
 router = APIRouter(prefix="/webhooks/meta", tags=["webhooks"])
 
 OPT_OUT_KEYWORDS = frozenset({"stop", "unsubscribe", "cancel", "quit", "end"})
+
+log = logging.getLogger(__name__)
 
 
 def _configured(settings: Settings) -> None:
@@ -40,8 +47,10 @@ async def verify(request: Request, settings: AppSettings) -> PlainTextResponse:
 
 
 @router.post("")
-async def receive(request: Request, settings: AppSettings, db: Db) -> dict[str, int]:
-    """Verify, persist, answer 200. Meta retries anything else, so every write is idempotent."""
+async def receive(
+    request: Request, settings: AppSettings, db: Db, runs: OptionalRuns
+) -> dict[str, int]:
+    """Verify, persist, signal, answer 200. Meta retries anything else, so writes are idempotent."""
     _configured(settings)
     raw = await request.body()
     header = request.headers.get("x-hub-signature-256")
@@ -53,9 +62,9 @@ async def receive(request: Request, settings: AppSettings, db: Db) -> dict[str, 
         if isinstance(event, TemplateStatusEvent):
             await _store_template_status(db, event)
         elif isinstance(event, MessageStatusEvent):
-            await _store_message_status(db, event)
+            await _store_message_status(db, runs, event)
         else:
-            await _store_inbound(db, event)
+            await _store_inbound(db, runs, event)
         counts[event.kind] += 1
     return counts
 
@@ -76,13 +85,15 @@ async def _store_template_status(db: Database, event: TemplateStatusEvent) -> No
     await db.update("templates", rows[0]["id"], changes)
 
 
-async def _store_message_status(db: Database, event: MessageStatusEvent) -> None:
+async def _store_message_status(
+    db: Database, runs: JourneyRuns | None, event: MessageStatusEvent
+) -> None:
     messages = await db.select("messages", wamid=f"eq.{event.wamid}")
-    message_id = messages[0]["id"] if messages else None
+    message = messages[0] if messages else None
     stored = await db.insert_ignore(
         "message_events",
         {
-            "message_id": message_id,
+            "message_id": message["id"] if message else None,
             "wamid": event.wamid,
             "type": event.status,
             "payload": event.model_dump(),
@@ -90,15 +101,20 @@ async def _store_message_status(db: Database, event: MessageStatusEvent) -> None
         },
         on_conflict="wamid,type",
     )
-    if stored is None or message_id is None:
+    if stored is None or message is None:
         return  # duplicate delivery, or a message we do not know
     changes: Row = {"status": event.status}
     if event.error is not None:
         changes["error"] = event.error
-    await db.update("messages", message_id, changes)
+    await db.update("messages", message["id"], changes)
+    if runs is not None and message.get("run_id"):
+        for run in await _running(db, id=f"eq.{message['run_id']}"):
+            await _signal(runs.signal_status(run["workflow_id"], event.model_dump()))
 
 
-async def _store_inbound(db: Database, event: InboundMessageEvent) -> None:
+async def _store_inbound(
+    db: Database, runs: JourneyRuns | None, event: InboundMessageEvent
+) -> None:
     contact = await db.upsert(
         "contacts", {"phone_e164": event.from_phone}, on_conflict="phone_e164"
     )
@@ -117,6 +133,42 @@ async def _store_inbound(db: Database, event: InboundMessageEvent) -> None:
     )
     if stored is None:
         return  # duplicate delivery
-    if (event.text or "").strip().lower() in OPT_OUT_KEYWORDS:
+    opted_out = (event.text or "").strip().lower() in OPT_OUT_KEYWORDS
+    if opted_out:
         consent = {"contact_id": contact["id"], "status": "opted_out", "source": "whatsapp_keyword"}
         await db.insert("consents", consent)
+    if runs is None:
+        log.warning("Temporal unreachable, inbound %s stored without signalling", event.wamid)
+        return
+    reply = ReplySignal(
+        wamid=event.wamid,
+        text=event.text,
+        button_payload=event.button_payload,
+        context_wamid=event.context_wamid,
+    )
+    for run in await _target_runs(db, contact["id"], event.context_wamid):
+        await _signal(runs.signal_reply(run["workflow_id"], reply))
+    if opted_out:
+        for run in await _running(db, contact_id=f"eq.{contact['id']}"):
+            await _signal(runs.signal_opt_out(run["workflow_id"]))
+
+
+async def _target_runs(db: Database, contact_id: str, context_wamid: str | None) -> list[Row]:
+    """The run that sent context_wamid when known; otherwise every running run of the contact."""
+    if context_wamid:
+        sent = await db.select("messages", wamid=f"eq.{context_wamid}")
+        if sent and sent[0].get("run_id"):
+            return await _running(db, id=f"eq.{sent[0]['run_id']}")
+    return await _running(db, contact_id=f"eq.{contact_id}")
+
+
+async def _running(db: Database, **filters: str) -> list[Row]:
+    return await db.select("journey_runs", status="eq.running", **filters)
+
+
+async def _signal(call: Awaitable[None]) -> None:
+    """Signalling is best effort: the event is already stored, Meta must get its 200."""
+    try:
+        await call
+    except RPCError:
+        log.warning("signal to Temporal failed", exc_info=True)
