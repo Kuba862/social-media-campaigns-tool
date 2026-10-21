@@ -354,6 +354,7 @@ ul {
   opacity: 0.8;
 }
 .badge[data-status="running"],
+.badge[data-status="queued"],
 .badge[data-status="PENDING"],
 .badge[data-status="sent"],
 .badge[data-status="accepted"] {

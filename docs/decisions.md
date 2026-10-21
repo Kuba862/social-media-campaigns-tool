@@ -661,6 +661,26 @@ z laptopa (`gcloud builds submit`, `.gcloudignore` wysyła tylko `backend/`) alb
 przez Workload Identity Federation (`deploy-worker.yml`, bez kluczy JSON); obrazy są tagowane
 `$BUILD_ID`, bo `$SHORT_SHA` istnieje tylko w buildach z triggera.
 
+### 41. API nie rozmawia z Temporal: polecenia idą przez tabelę `dispatch_queue`, wykonuje je worker (2026-10-21)
+
+Decyzja: każde działanie API na silniku (start i anulowanie przebiegu, sygnały z webhooka,
+start synchronizacji, nałożenie harmonogramu) staje się wierszem `dispatch_queue` (`kind`,
+`payload`, `attempts`, `error`, `done_at`), który worker odbiera i wykonuje na swoim Temporalu.
+`api/dispatch.py` (`QueuedRuns`) implementuje te same protokoły, które wcześniej spełniał klient
+Temporal, więc trasy i testy tras nie zmieniają się; implementacja Temporal przenosi się do
+`worker/temporal_runs.py`. Przebieg jest zakładany jako `queued` (nowy status; indeks jednego
+aktywnego przebiegu obejmuje `queued` i `running`), a worker ustawia `running` po starcie
+workflow. Stan "live" z zapytania do workflow znika z `GET /runs/{id}` (panel pokazuje
+`current_node_id` z bazy); stan harmonogramu worker zapisuje w `sync_connectors.schedule_state`,
+skąd czyta go panel. Zmienne `TEMPORAL_*` znikają z API; zostają tylko w workerze.
+Powód: PoC ma działać bez Temporal Cloud na serwerze dev obok workera, który nie ma
+uwierzytelniania, więc nie może być osiągalny z Vercela; kolejka w bazie odcina API od silnika,
+czyni sygnały webhooka trwałymi (zamyka punkt z "Later" o sygnałach gubionych przy awarii)
+i zostaje poprawna także z Temporal Cloud: wtedy zmienia się tylko konfiguracja workera.
+Konsekwencje: opóźnienie startu przebiegu o interwał odpytywania kolejki (sekundy); API nigdy
+nie dostaje 503 z powodu Temporala; przebieg z `queued`, którego worker nie zdąży przejąć, czeka
+w kolejce; usunięty test "awaria połączenia z Temporal" w webhooku, bo webhook już go nie dotyka.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
