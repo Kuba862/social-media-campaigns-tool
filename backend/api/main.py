@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from api.auth import CurrentUser
 from api.db import Database
 from api.routes.templates import router as templates_router
+from api.routes.webhooks_meta import router as webhooks_router
 from api.settings import load_settings
 from meta_client import MetaClient
 
@@ -39,6 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="WhatsApp campaigns API", lifespan=lifespan)
 app.include_router(templates_router)
+app.include_router(webhooks_router)
 
 
 @app.get("/healthz")
