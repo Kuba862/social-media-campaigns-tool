@@ -29,8 +29,19 @@ class FakeDb:
         return self.tables.setdefault(table, [])
 
     async def select(self, table: str, columns: str = "*", **filters: str) -> list[Row]:
-        wanted = {key: value.removeprefix("eq.") for key, value in filters.items()}
-        return [r for r in self.rows(table) if all(str(r.get(k)) == v for k, v in wanted.items())]
+        """PostgREST filters as the callers use them: eq.<value> and in.("a","b")."""
+
+        def matches(row: Row) -> bool:
+            for key, value in filters.items():
+                if value.startswith("in.("):
+                    wanted = [item.strip('"') for item in value[4:-1].split(",")]
+                    if str(row.get(key)) not in wanted:
+                        return False
+                elif str(row.get(key)) != value.removeprefix("eq."):
+                    return False
+            return True
+
+        return [r for r in self.rows(table) if matches(r)]
 
     async def insert(self, table: str, row: Row) -> Row:
         if table == "templates" and any(

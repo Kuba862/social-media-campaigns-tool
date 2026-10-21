@@ -1,0 +1,255 @@
+/* One stylesheet for the whole panel: tokens, base elements, a few layout classes. No framework. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --text: #1c2431;
+  --muted: #5d6676;
+  --border: #d8dde6;
+  --accent: #0b7a4b;
+  --accent-text: #ffffff;
+  --danger: #b42318;
+  --warn-bg: #fff4e5;
+  --ok-bg: #e8f5ee;
+  --radius: 8px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1319;
+    --surface: #171c24;
+    --text: #e6e9ef;
+    --muted: #9aa4b5;
+    --border: #2a3240;
+    --accent: #2fbf7f;
+    --accent-text: #07130d;
+    --danger: #ff6b61;
+    --warn-bg: #3a2a12;
+    --ok-bg: #0f2a1c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.45;
+}
+main {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 24px 48px;
+}
+h1 {
+  font-size: 1.6rem;
+  margin: 8px 0 16px;
+}
+h2 {
+  font-size: 1.15rem;
+  margin: 24px 0 8px;
+}
+a {
+  color: var(--accent);
+}
+p {
+  margin: 8px 0;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.nav .brand {
+  font-weight: 600;
+  margin-right: 12px;
+}
+.nav a {
+  color: var(--text);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius);
+}
+.nav a[aria-current="page"] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.nav .spacer {
+  flex: 1;
+}
+.nav .user {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.crumbs {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 8px 0 16px;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-size: 0.95rem;
+}
+th {
+  background: color-mix(in srgb, var(--surface) 85%, var(--border));
+  font-weight: 600;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  min-width: 9rem;
+}
+textarea {
+  min-width: 22rem;
+}
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+td button,
+.secondary,
+.panel button[type="button"] {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+[role="alert"] {
+  background: var(--warn-bg);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+}
+[role="status"]:not(:empty) {
+  background: var(--ok-bg);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+}
+.problems {
+  background: var(--warn-bg);
+  border-radius: var(--radius);
+  padding: 8px 12px 8px 28px;
+  margin: 8px 0;
+}
+.muted,
+.empty {
+  color: var(--muted);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.editor {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.canvas {
+  flex: 1;
+  height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.panel {
+  width: 340px;
+  flex: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 0.9rem;
+}
+.panel h2 {
+  margin-top: 0;
+}
+.panel form {
+  flex-direction: column;
+  align-items: stretch;
+}
+.panel fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.panel legend {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.node {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  background: var(--surface);
+  color: var(--text);
+  width: 170px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.node strong {
+  color: var(--accent);
+}
+.node .handles {
+  text-align: right;
+  color: var(--muted);
+}

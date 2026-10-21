@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
+import { Nav } from "@/components/nav";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -15,21 +16,28 @@ export default async function HomePage() {
   }
 
   return (
-    <main>
-      <h1>Social Media campaigns tool</h1>
-      <p>Signed in as {user.email}</p>
-      <p>
-        <Link href="/templates">Templates</Link>
-      </p>
-      <p>
-        <Link href="/messages">Messages</Link>
-      </p>
-      <p>
-        <Link href="/journeys">Journeys</Link>
-      </p>
-      <form action={logout}>
-        <button type="submit">Sign out</button>
-      </form>
-    </main>
+    <>
+      <Nav current="/" email={user.email} />
+      <main>
+        <h1>WhatsApp campaigns</h1>
+        <p>Signed in as {user.email}</p>
+        <ul>
+          <li>
+            <Link href="/templates">Manage templates</Link>: drafts, submission to Meta, test sends.
+          </li>
+          <li>
+            <Link href="/journeys">Build journeys</Link>: the editor, versions and runs.
+          </li>
+          <li>
+            <Link href="/messages">Read the message log</Link>: delivery statuses per message.
+          </li>
+        </ul>
+        <form action={logout}>
+          <button type="submit" className="secondary">
+            Sign out
+          </button>
+        </form>
+      </main>
+    </>
   );
 }

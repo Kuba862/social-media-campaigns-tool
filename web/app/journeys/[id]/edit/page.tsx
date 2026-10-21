@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Nav } from "@/components/nav";
 import { ApiError, apiFetch } from "@/lib/api";
 import {
   EMPTY_DEFINITION,
@@ -71,32 +72,30 @@ export default async function EditJourneyPage({ params }: { params: Promise<{ id
   const { journey, templates, problem } = await loadJourney(id);
   const start = journey ? startingPoint(journey) : null;
   return (
-    <main>
-      <p>
-        <Link href="/">Home</Link> | <Link href="/journeys">Journeys</Link>
-        {journey && (
+    <>
+      <Nav current="/journeys" />
+      <main>
+        <p className="crumbs">
+          <Link href="/journeys">Journeys</Link> /{" "}
+          {journey ? <Link href={`/journeys/${id}`}>{journey.name}</Link> : "Journey"} / Edit
+        </p>
+        <h1>Edit: {journey?.name ?? "Journey"}</h1>
+        {problem && <p role="alert">{problem}</p>}
+        {start && (
           <>
-            {" "}
-            | <Link href={`/journeys/${id}`}>{journey.name}</Link>
+            <p>
+              Editing {start.label}. Save draft keeps your work; Publish checks it and makes it the
+              next version.
+            </p>
+            <Editor
+              journeyId={id}
+              definition={start.definition}
+              layout={start.layout}
+              templates={templates}
+            />
           </>
         )}
-      </p>
-      <h1>Edit: {journey?.name ?? "Journey"}</h1>
-      {problem && <p role="alert">{problem}</p>}
-      {start && (
-        <>
-          <p>
-            Editing {start.label}. Save draft keeps your work; Publish checks it and makes it the
-            next version.
-          </p>
-          <Editor
-            journeyId={id}
-            definition={start.definition}
-            layout={start.layout}
-            templates={templates}
-          />
-        </>
-      )}
-    </main>
+      </main>
+    </>
   );
 }

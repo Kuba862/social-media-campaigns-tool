@@ -9,7 +9,7 @@ test.beforeAll(async ({ playwright }) => {
 
 test("draft is saved and submit reports Meta is not configured", async ({ page }) => {
   await signIn(page);
-  await page.getByRole("link", { name: "Templates" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Templates" }).click();
   await expect(page.getByRole("heading", { name: "Templates" })).toBeVisible();
 
   const name = `e2e_${Date.now()}`;

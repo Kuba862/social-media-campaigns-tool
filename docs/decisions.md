@@ -485,6 +485,26 @@ się po `name`, bo tekst etykiety obejmuje listę opcji, a krawędzie React Flow
 z identyfikatorami węzłów; po kliknięciu węzła test czeka na "id: …" w panelu, bo formularz
 podmienia się po ustaleniu zaznaczenia.
 
+### 32. Widok przebiegów: start po numerach telefonów, stan z bazy; jeden arkusz stylów bez frameworka (2026-10-21)
+
+Decyzja: `POST /journeys/{id}/runs` przyjmuje obok `contact_ids` listę `phones` (E.164); API
+rozwiązuje numery na kontakty jednym zapytaniem `in.(...)` i zwraca `unknown` dla numerów bez
+kontaktu, nic dla nich nie tworząc. Strona `/journeys/{id}/runs` pokazuje przebiegi ze stanem
+z bazy (`status`, `current_node_id` zapisywane przez `record_run_progress` przy każdym węźle),
+formularz startu po numerach i Cancel dla biegnących; nie odpytuje Temporal na liście, żeby
+strona działała także bez niego (stan live zostaje w `GET /runs/{id}`). Panel dostaje jeden
+globalny arkusz `app/globals.css` (tokeny kolorów z trybem ciemnym po `prefers-color-scheme`,
+elementy bazowe, kilka klas układu) i wspólny pasek `components/nav.tsx`; bez Tailwinda ani
+zestawu UI, bo sekcja 1 instrukcji każe uzasadniać każdą taką zależność, a PoC potrzebuje tylko
+czytelności. Strony mają okruszki pod paskiem; link do sekcji w testach klika się w `navigation`.
+Powód: sekcja 6 (faza 4): "lista przebiegów z bieżącym węzłem z bazy, opcjonalnie live"; start
+po liście numerów zamiast identyfikatorów, bo tak myśli użytkownik panelu.
+Konsekwencje: prosty filtr segmentu (kraj, atrybut) z "Later" nadal czeka; etykieta szablonu na
+węźle to skrót identyfikatora, bo pełny UUID poszerzał węzeł na sąsiada (nazwa wymagałaby
+słownika szablonów w widoku węzła); dopasowanie widoku po pierwszym renderze bywa za wczesne
+(przycisk Fit View w kontrolkach); API w trybie dev warto uruchamiać z `--reload`, bo bez tego
+zmiany w kodzie nie są widoczne, co kosztowało jedną turę przy tym kroku.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -508,3 +528,5 @@ podmienia się po ustaleniu zaznaczenia.
   unikalności.
 - Sygnały utracone w czasie awarii Temporal: kolejka ponowień (np. tabela `pending_signals`
   opróżniana przez workera) zamiast samego ostrzeżenia w logu.
+- Edytor: dopasowanie widoku (`fitView`) po pierwszym renderze bywa za wczesne, gdy kanwa
+  jeszcze nie ma rozmiaru; do sprawdzenia `onInit` albo `ResizeObserver` na kontenerze.

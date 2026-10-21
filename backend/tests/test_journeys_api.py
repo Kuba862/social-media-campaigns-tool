@@ -94,8 +94,24 @@ def test_start_runs_once_per_contact(
     run_input = temporal.started[0][1]
     assert (run_input.contact_id, run_input.definition) == ("c-1", guide_example_json)
     again = client.post(f"/journeys/{journey_id}/runs", json={"contact_ids": ["c-1"]}).json()
-    assert again == {"started": [], "skipped": ["c-1"]}  # still running in the database
+    assert again == {"started": [], "skipped": ["c-1"], "unknown": []}  # still running
     assert len(db.rows("journey_runs")) == 2
+
+
+def test_start_by_phone_resolves_contacts_and_reports_unknown_numbers(
+    client: TestClient, temporal: FakeTemporal, guide_example_json: dict[str, Any]
+) -> None:
+    journey_id = published(client, guide_example_json)
+    body = {"phones": ["+48600000001", "+48700000000"]}
+    result = client.post(f"/journeys/{journey_id}/runs", json=body)
+    assert result.status_code == 201
+    assert result.json() == {
+        "started": [temporal.started[0][1].run_id],
+        "skipped": [],
+        "unknown": ["+48700000000"],
+    }
+    assert temporal.started[0][1].contact_id == "c-1"
+    assert client.post(f"/journeys/{journey_id}/runs", json={}).status_code == 422
 
 
 def test_temporal_refusal_marks_the_row_cancelled(
@@ -104,7 +120,7 @@ def test_temporal_refusal_marks_the_row_cancelled(
     journey_id = published(client, guide_example_json)
     temporal.active.add(f"journey:{journey_id}:contact:c-1")  # a run Temporal still knows about
     result = client.post(f"/journeys/{journey_id}/runs", json={"contact_ids": ["c-1"]}).json()
-    assert result == {"started": [], "skipped": ["c-1"]}
+    assert result == {"started": [], "skipped": ["c-1"], "unknown": []}
     assert db.rows("journey_runs")[0]["status"] == "cancelled"
 
 
