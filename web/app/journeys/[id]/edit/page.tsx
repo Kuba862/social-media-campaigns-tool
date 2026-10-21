@@ -8,6 +8,8 @@ import {
   type Layout,
 } from "@/lib/journey-definition";
 import type { JourneyDetail } from "@/lib/journeys";
+import { placeholderCount, type TemplateOption } from "@/lib/node-forms";
+import type { TemplateRow } from "@/lib/templates";
 import { Editor } from "./editor";
 
 /** The draft when there is one, else a copy of the latest published version, else start and end. */
@@ -28,21 +30,45 @@ function startingPoint(journey: JourneyDetail): {
   };
 }
 
+/**
+ * Approved templates only: a send node may not pick anything else. Rows made outside the panel
+ * (webhook, psql) can carry `[]` or Meta's component list instead of our object, so the body is
+ * read defensively.
+ */
+function templateOptions(rows: TemplateRow[]): TemplateOption[] {
+  return rows
+    .filter((row) => row.status === "APPROVED")
+    .map((row) => {
+      const body: unknown =
+        row.components && !Array.isArray(row.components) ? row.components.body : "";
+      return {
+        id: row.id,
+        name: row.name,
+        language: row.language,
+        placeholders: placeholderCount(typeof body === "string" ? body : ""),
+      };
+    });
+}
+
 async function loadJourney(
   id: string,
-): Promise<{ journey: JourneyDetail | null; problem: string | null }> {
+): Promise<{ journey: JourneyDetail | null; templates: TemplateOption[]; problem: string | null }> {
   try {
-    return { journey: await apiFetch<JourneyDetail>(`/journeys/${id}`), problem: null };
+    const [journey, rows] = await Promise.all([
+      apiFetch<JourneyDetail>(`/journeys/${id}`),
+      apiFetch<TemplateRow[]>("/templates"),
+    ]);
+    return { journey, templates: templateOptions(rows), problem: null };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     const problem = error instanceof ApiError ? error.message : "API is not reachable";
-    return { journey: null, problem };
+    return { journey: null, templates: [], problem };
   }
 }
 
 export default async function EditJourneyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { journey, problem } = await loadJourney(id);
+  const { journey, templates, problem } = await loadJourney(id);
   const start = journey ? startingPoint(journey) : null;
   return (
     <main>
@@ -60,7 +86,12 @@ export default async function EditJourneyPage({ params }: { params: Promise<{ id
       {start && (
         <>
           <p>Editing {start.label}. Save creates or overwrites the draft; publish comes later.</p>
-          <Editor journeyId={id} definition={start.definition} layout={start.layout} />
+          <Editor
+            journeyId={id}
+            definition={start.definition}
+            layout={start.layout}
+            templates={templates}
+          />
         </>
       )}
     </main>
