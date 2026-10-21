@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   addEdge,
   Background,
   Controls,
   ReactFlow,
+  ReactFlowProvider,
   useEdgesState,
+  useNodesInitialized,
   useNodesState,
+  useReactFlow,
   type Connection,
   type NodeTypes,
 } from "@xyflow/react";
@@ -29,30 +33,44 @@ import {
   type JourneyEdge,
   type JourneyNode,
 } from "@/lib/journey-graph";
+import { problemsOf } from "@/lib/journey-validation";
 import type { Applied, TemplateOption } from "@/lib/node-forms";
-import { saveDraft, type SaveResult } from "./actions";
+import { publishDraft, saveDraft, type SaveResult } from "./actions";
 import { JourneyNodeView } from "./journey-node";
 import { NodePanel } from "./node-panel";
 
 const nodeTypes: NodeTypes = { journey: JourneyNodeView };
 
-export function Editor({
-  journeyId,
-  definition,
-  layout,
-  templates,
-}: {
+type EditorProps = {
   journeyId: string;
   definition: Definition;
   layout: Layout;
   templates: TemplateOption[];
-}) {
+};
+
+/** The provider lets the editor refit the view after the palette adds a node. */
+export function Editor(props: EditorProps) {
+  return (
+    <ReactFlowProvider>
+      <EditorInner {...props} />
+    </ReactFlowProvider>
+  );
+}
+
+function EditorInner({ journeyId, definition, layout, templates }: EditorProps) {
+  const router = useRouter();
   const [initial] = useState(() => toGraph(definition, layout));
   const [nodes, setNodes, onNodesChange] = useNodesState<JourneyNode>(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<JourneyEdge>(initial.edges);
   const [result, setResult] = useState<SaveResult | null>(null);
+  const [serverProblems, setServerProblems] = useState<string[]>([]);
   const [saving, startSaving] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
+  useEffect(() => {
+    if (nodesInitialized) void fitView({ padding: 0.2 });
+  }, [nodesInitialized, fitView]);
 
   /** A source handle leads to one node: connecting again replaces the previous edge. */
   const onConnect = useCallback(
@@ -105,7 +123,22 @@ export function Editor({
     });
   }
 
+  /** Save, then publish; on success the journey page shows the new version. */
+  function publish() {
+    const draft = fromGraph(nodes, edges);
+    startSaving(async () => {
+      const outcome = await publishDraft(journeyId, draft.definition, draft.layout);
+      if (outcome.ok) {
+        router.push(`/journeys/${journeyId}`);
+      } else {
+        setServerProblems(outcome.problems);
+      }
+    });
+  }
+
   const hasStart = nodes.some((node) => node.data.type === "start");
+  const approved = new Set(templates.map((template) => template.id));
+  const problems = problemsOf(fromGraph(nodes, edges).definition, approved);
   const selected = nodes.find((node) => node.id === selectedId);
   const targetOptions = nodes
     .filter((node) => node.id !== selectedId && node.data.type !== "start")
@@ -125,11 +158,30 @@ export function Editor({
         ))}{" "}
         <button type="button" onClick={save} disabled={saving}>
           Save draft
+        </button>{" "}
+        <button type="button" onClick={publish} disabled={saving || problems.length > 0}>
+          Publish
         </button>
       </p>
       <p role="status">
         {result === null ? "" : result.ok ? `Draft v${result.version} saved` : result.error}
       </p>
+      {problems.length === 0 ? (
+        <p>Ready to publish.</p>
+      ) : (
+        <ul aria-label="Problems">
+          {problems.map((problem) => (
+            <li key={problem}>{problem}</li>
+          ))}
+        </ul>
+      )}
+      {serverProblems.length > 0 && (
+        <ul aria-label="Server problems" role="alert">
+          {serverProblems.map((problem) => (
+            <li key={problem}>{problem}</li>
+          ))}
+        </ul>
+      )}
       <div style={{ display: "flex", gap: 16 }}>
         <div style={{ flex: 1, height: "70vh", border: "1px solid #ccc" }}>
           <ReactFlow

@@ -462,6 +462,29 @@ tworzy tylko jednokluczowe); wartości warunków i `set` są tekstem (bool i lic
 w "Later"); szablony spoza panelu mogą mieć `components` w innym kształcie (`[]`, lista Mety),
 więc treść czytana jest defensywnie i taki szablon ma zero zmiennych.
 
+### 31. Edytor: walidacja po stronie panelu jako lustro backendu, publikacja z edytora (2026-10-21)
+
+Decyzja: `web/lib/journey-validation.ts` powtarza reguły grafu z `core/validation.py` z tymi
+samymi komunikatami, a jej test Vitest przenosi przypadki z `tests/test_validation.py` i tę
+samą fixture, więc obie strony muszą się zgadzać. Edytor liczy listę problemów przy każdej
+zmianie (`problemsOf`): najpierw "niedokończone" pola szkicu powiedziane po ludzku (brak szablonu,
+warunek albo `else` bez celu), potem reguły grafu bez echa tych samych braków. Przycisk Publish
+jest zablokowany, dopóki lista nie jest pusta; po kliknięciu akcja serwera zapisuje szkic
+i woła `POST /journeys/{id}/publish`, a 422 z API wraca jako lista problemów serwera, pokazana
+osobno (serwer pozostaje autorytatywny). Po publikacji panel przechodzi na stronę journey.
+`ApiError` niesie teraz `details` (lista), bo FastAPI zwraca problemy walidacji jako listę.
+Po dodaniu węzła kanwa dopasowuje widok (`useNodesInitialized` + `fitView`), bo nowe węzły
+trafiały poza ekran. Playwright `publish.spec.ts` buduje w edytorze journey z kryterium 2 briefu
+(wyślij → czekaj → czekaj na odpowiedź → rozgałęź) i publikuje ją; `approveTemplate`
+w `e2e/helpers.ts` zatwierdza szablon podpisanym webhookiem.
+Powód: sekcja 6 (faza 4) wymaga walidacji po stronie klienta lustrzanej do serwera i testu
+"build-journey, publish"; użytkownik ma widzieć, czego brakuje, zanim kliknie.
+Konsekwencje: zmiana reguły w `core/validation.py` wymaga tej samej zmiany w lustrze (test po
+obu stronach to wychwyci tylko dla wspólnych przypadków); w testach Playwright pola panelu wybiera
+się po `name`, bo tekst etykiety obejmuje listę opcji, a krawędzie React Flow mają `aria-label`
+z identyfikatorami węzłów; po kliknięciu węzła test czeka na "id: …" w panelu, bo formularz
+podmienia się po ustaleniu zaznaczenia.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

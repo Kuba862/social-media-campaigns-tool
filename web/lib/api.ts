@@ -1,11 +1,15 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 
-/** Error from our API: `status` is the HTTP code, `message` is the API's `detail`. */
+/**
+ * Error from our API: `status` is the HTTP code, `message` the API's `detail` (joined when it is
+ * a list), `details` the list itself (validation problems come as one string per problem).
+ */
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly details: string[] = [],
   ) {
     super(message);
   }
@@ -13,12 +17,18 @@ export class ApiError extends Error {
 
 type Options = { method?: "GET" | "POST" | "PUT"; body?: unknown };
 
-function detailOf(payload: unknown): string | null {
-  if (payload && typeof payload === "object" && "detail" in payload) {
-    const detail = (payload as { detail: unknown }).detail;
-    return typeof detail === "string" ? detail : null;
-  }
-  return null;
+function detailsOf(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object" || !("detail" in payload)) return [];
+  const detail = (payload as { detail: unknown }).detail;
+  if (typeof detail === "string") return [detail];
+  if (!Array.isArray(detail)) return [];
+  return detail.map((item) =>
+    typeof item === "string"
+      ? item
+      : item && typeof item === "object" && "msg" in item
+        ? String((item as { msg: unknown }).msg)
+        : JSON.stringify(item),
+  );
 }
 
 /** Calls our FastAPI as the signed-in user. Server side only: API_URL never reaches the browser. */
@@ -41,7 +51,12 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
   });
   if (!response.ok) {
     const payload: unknown = await response.json().catch(() => null);
-    throw new ApiError(response.status, detailOf(payload) ?? `API responded ${response.status}`);
+    const details = detailsOf(payload);
+    throw new ApiError(
+      response.status,
+      details.length > 0 ? details.join("; ") : `API responded ${response.status}`,
+      details,
+    );
   }
   return (await response.json()) as T;
 }
