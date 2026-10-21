@@ -7,6 +7,7 @@ substitutions:
   _REGION: europe-west1
   _REPO: wa
   _POOL: wa-worker
+  _WORKER_SA: wa-worker # service account the pool runs as (needs Secret Accessor on the secrets)
   # PoC: the worker runs its own Temporal dev server (decision 43). For Temporal Cloud set
   # _TEMPORAL_EMBEDDED=false, the address <namespace>.<account>.tmprl.cloud:7233, the namespace
   # <namespace>.<account>, and add TEMPORAL_API_KEY=temporal-api-key:latest to _SECRETS.
@@ -55,6 +56,7 @@ steps:
       - --cpu=1
       # "^|^" makes "|" the separator, so a comma-separated recipient list survives.
       - --set-env-vars=^|^TEMPORAL_EMBEDDED=${_TEMPORAL_EMBEDDED}|TEMPORAL_ADDRESS=${_TEMPORAL_ADDRESS}|TEMPORAL_NAMESPACE=${_TEMPORAL_NAMESPACE}|SUPABASE_URL=${_SUPABASE_URL}|WA_SEND_MODE=test|WA_ALLOWED_TEST_RECIPIENTS=${_WA_ALLOWED_TEST_RECIPIENTS}|META_GRAPH_VERSION=${_META_GRAPH_VERSION}|META_WABA_ID=${_META_WABA_ID}|META_PHONE_NUMBER_ID=${_META_PHONE_NUMBER_ID}
+      - --service-account=${_WORKER_SA}@$PROJECT_ID.iam.gserviceaccount.com
       - --set-secrets=${_SECRETS}
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$BUILD_ID

@@ -136,6 +136,9 @@ Jeśli `gcloud` odmówi wdrożenia z powodu konta usługi, dopisz do kroku `depl
 
 ## Rozwiązywanie problemów
 
+- Deploy pada z `Permission denied on secret ... for Revision service account ...-compute@`: pool
+  startuje na domyślnym koncie zamiast `wa-worker`; `cloudbuild.yaml` przekazuje
+  `--service-account=${_WORKER_SA}@<projekt>.iam.gserviceaccount.com` (od 2026-10-21).
 - `the --mount option requires BuildKit` w kroku `build`: krok dockera w `cloudbuild.yaml` musi mieć
   `env: ["DOCKER_BUILDKIT=1"]` (jest od 2026-10-21); `Dockerfile` używa `RUN --mount`, `COPY --chmod`
   i `ARG TARGETARCH`, które działają tylko z BuildKitem.
