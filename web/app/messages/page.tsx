@@ -1,4 +1,5 @@
 import { Nav } from "@/components/nav";
+import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
 import { eventLabels, type MessageRow } from "@/lib/messages";
 
@@ -17,33 +18,44 @@ export default async function MessagesPage() {
     <>
       <Nav current="/messages" />
       <main>
-        <h1>Messages</h1>
+        <div className="page-head">
+          <div>
+            <h1>Messages</h1>
+            <p className="lede">Every message the system sent, with the statuses Meta reported.</p>
+          </div>
+        </div>
         {problem && <p role="alert">{problem}</p>}
-        <table>
-          <thead>
-            <tr>
-              <th>Created</th>
-              <th>Template</th>
-              <th>To</th>
-              <th>Status</th>
-              <th>Events</th>
-              <th>Error</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>{row.created_at.slice(0, 19).replace("T", " ")}</td>
-                <td>{row.templates ? `${row.templates.name} (${row.templates.language})` : "-"}</td>
-                <td>{row.contacts?.phone_e164 ?? "-"}</td>
-                <td>{row.status}</td>
-                <td>{eventLabels(row.message_events).join(", ") || "-"}</td>
-                <td>{row.error?.message ?? ""}</td>
+        <div className="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Template</th>
+                <th>To</th>
+                <th>Status</th>
+                <th>Events</th>
+                <th>Error</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {rows.length === 0 && <p className="empty">No messages yet.</p>}
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.created_at.slice(0, 19).replace("T", " ")}</td>
+                  <td>
+                    {row.templates ? `${row.templates.name} (${row.templates.language})` : "-"}
+                  </td>
+                  <td>{row.contacts?.phone_e164 ?? "-"}</td>
+                  <td>
+                    <Status value={row.status} />
+                  </td>
+                  <td>{eventLabels(row.message_events).join(", ") || "-"}</td>
+                  <td>{row.error?.message ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length === 0 && <p className="empty">No messages yet.</p>}
+        </div>
       </main>
     </>
   );

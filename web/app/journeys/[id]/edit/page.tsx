@@ -79,7 +79,9 @@ export default async function EditJourneyPage({ params }: { params: Promise<{ id
           <Link href="/journeys">Journeys</Link> /{" "}
           {journey ? <Link href={`/journeys/${id}`}>{journey.name}</Link> : "Journey"} / Edit
         </p>
-        <h1>Edit: {journey?.name ?? "Journey"}</h1>
+        <div className="page-head">
+          <h1>Edit: {journey?.name ?? "Journey"}</h1>
+        </div>
         {problem && <p role="alert">{problem}</p>}
         {start && (
           <>

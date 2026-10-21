@@ -598,6 +598,26 @@ Konsekwencje: lista nazw konektorów w `web/lib/sync.ts` trzeba uzupełnić przy
 (API i tak odrzuci nieznaną nazwę); w testach Playwright tabele mają `aria-label`, a pola wybiera
 się po `name`, bo `getByLabel("Connector")` trafiało też w tabelę "Connectors".
 
+### 38. System wizualny panelu: tokeny, karty, odznaki, czcionki przez `next/font`, bez frameworka CSS (2026-10-21)
+
+Decyzja: jeden arkusz `app/globals.css` w warstwach: tokeny (skala neutralna, jeden zielony akcent,
+kolory semantyczne, cienie, promienie, odstępy; wariant ciemny po `prefers-color-scheme`),
+elementy bazowe, komponenty (przyklejony pasek z rozmyciem i znakiem marki, `.card`, `.badge`
+kolorowana po `data-status`, `.toolbar`, formularze z pierścieniem fokusu, tabele z nagłówkiem
+w kapitalikach i podświetleniem wiersza, stany puste, kafle na stronie głównej, karta logowania)
+i edytor (węzły z lewym akcentem w kolorze typu, zaznaczenie pierścieniem, uchwyty w akcencie,
+zmienne motywu React Flow). Czcionki Inter i JetBrains Mono ładuje `next/font/google` (wbudowane
+w Next, pobierane przy budowaniu, bez zależności runtime). Komponent `Status` renderuje odznakę
+z wartością statusu, więc nowe statusy dostają kolor przez CSS bez zmian w stronach.
+Ruch jest subtelny (hover, fokus) i wyłączany przy `prefers-reduced-motion`. Dopasowanie widoku
+edytora ma górny limit zoomu 1, żeby węzły nie malały poniżej czytelności.
+Powód: Jakub poprosił o nowoczesny, modernistyczny wygląd; sekcja 1 instrukcji każe uzasadniać
+zestawy UI, a zwykły CSS z tokenami daje spójność i tryb ciemny bez nowej zależności.
+Konsekwencje: `pnpm build` pobiera czcionki z Google Fonts, więc runner CI potrzebuje sieci
+(ma); strony dzielą klasy `.card`, `.page-head`, `.lede`, `.toolbar`, `.badge`, które trzeba
+używać konsekwentnie w kolejnych stronach; testy e2e nie zależą od stylów, tylko od ról
+i etykiet, i przeszły bez zmian.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

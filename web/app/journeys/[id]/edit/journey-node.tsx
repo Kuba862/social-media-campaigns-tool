@@ -25,11 +25,11 @@ function summary(node: NodeDef): string {
 export function JourneyNodeView({ id, data }: NodeProps<JourneyNode>) {
   const handles = sourceHandles(data);
   return (
-    <div className="node">
+    <div className="node" data-type={data.type}>
       {data.type !== "start" && <Handle type="target" position={Position.Left} id="in" />}
-      <strong>{data.type}</strong>
-      <div>{id}</div>
-      <div>{summary(data)}</div>
+      <strong>{data.type.replace("_", " ")}</strong>
+      <div className="id">{id}</div>
+      <div className="summary">{summary(data)}</div>
       {handles.length > 1 && (
         <div className="handles">
           {handles.map((handle) => (

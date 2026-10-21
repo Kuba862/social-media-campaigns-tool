@@ -69,7 +69,7 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
   const { fitView } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
   useEffect(() => {
-    if (nodesInitialized) void fitView({ padding: 0.2 });
+    if (nodesInitialized) void fitView({ padding: 0.25, maxZoom: 1 });
   }, [nodesInitialized, fitView]);
 
   /** A source handle leads to one node: connecting again replaces the previous edge. */
@@ -157,7 +157,7 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
             Add {type}
           </button>
         ))}
-        <span className="spacer" style={{ flex: 1 }} />
+        <span className="spacer" />
         <button type="button" onClick={save} disabled={saving}>
           Save draft
         </button>
@@ -196,6 +196,7 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
             onSelectionChange={onSelectionChange}
             deleteKeyCode={["Backspace", "Delete"]}
             fitView
+            fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
           >
             <Background />
             <Controls />
