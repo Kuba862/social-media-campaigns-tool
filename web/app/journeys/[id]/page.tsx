@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
 import { nodeCount, type JourneyDetail } from "@/lib/journeys";
 
@@ -35,27 +36,31 @@ export default async function JourneyPage({ params }: { params: Promise<{ id: st
               <Link href={`/journeys/${journey.id}/runs`}>Runs</Link>
             </p>
             <h2>Versions</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>State</th>
-                  <th>Nodes</th>
-                  <th>Published</th>
-                </tr>
-              </thead>
-              <tbody>
-                {journey.versions.map((version) => (
-                  <tr key={version.id}>
-                    <td>{version.version}</td>
-                    <td>{version.published_at === null ? "draft" : "published"}</td>
-                    <td>{nodeCount(version)}</td>
-                    <td>{version.published_at?.slice(0, 19).replace("T", " ") ?? "-"}</td>
+            <div className="card">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>State</th>
+                    <th>Nodes</th>
+                    <th>Published</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {journey.versions.length === 0 && <p className="empty">No versions yet.</p>}
+                </thead>
+                <tbody>
+                  {journey.versions.map((version) => (
+                    <tr key={version.id}>
+                      <td>{version.version}</td>
+                      <td>
+                        <Status value={version.published_at === null ? "draft" : "published"} />
+                      </td>
+                      <td>{nodeCount(version)}</td>
+                      <td>{version.published_at?.slice(0, 19).replace("T", " ") ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {journey.versions.length === 0 && <p className="empty">No versions yet.</p>}
+            </div>
           </>
         )}
       </main>

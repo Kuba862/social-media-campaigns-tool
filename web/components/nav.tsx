@@ -12,7 +12,10 @@ const LINKS = [
 export function Nav({ current, email }: { current?: string; email?: string }) {
   return (
     <nav className="nav" aria-label="Main">
-      <span className="brand">WhatsApp campaigns</span>
+      <Link href="/" className="brand">
+        <span className="mark" aria-hidden="true" />
+        WhatsApp campaigns
+      </Link>
       {LINKS.map(([href, label]) => (
         <Link key={href} href={href} aria-current={current === href ? "page" : undefined}>
           {label}

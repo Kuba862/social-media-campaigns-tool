@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { JourneyDetail } from "@/lib/journeys";
 import { formatTime, type RunRow } from "@/lib/runs";
@@ -41,58 +42,71 @@ export default async function RunsPage({
           <Link href="/journeys">Journeys</Link> /{" "}
           {journey ? <Link href={`/journeys/${id}`}>{journey.name}</Link> : "Journey"} / Runs
         </p>
-        <h1>Runs: {journey?.name ?? "Journey"}</h1>
+        <div className="page-head">
+          <div>
+            <h1>Runs: {journey?.name ?? "Journey"}</h1>
+            <p className="lede">
+              One row per contact; the current node comes from the worker as it goes.
+            </p>
+          </div>
+        </div>
         {message && <p role="alert">{message}</p>}
         {notice && <p role="status">{notice}</p>}
-        <table>
-          <thead>
-            <tr>
-              <th>Contact</th>
-              <th>Status</th>
-              <th>Current node</th>
-              <th>Started</th>
-              <th>Ended</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.map((run) => (
-              <tr key={run.id}>
-                <td>{run.contacts?.phone_e164 ?? run.contact_id}</td>
-                <td>{run.status}</td>
-                <td>{run.current_node_id ?? "-"}</td>
-                <td>{formatTime(run.started_at)}</td>
-                <td>{formatTime(run.ended_at)}</td>
-                <td>
-                  {run.status === "running" && (
-                    <form action={cancelRun}>
-                      <input type="hidden" name="journey_id" value={id} />
-                      <input type="hidden" name="run_id" value={run.id} />
-                      <button type="submit" className="danger">
-                        Cancel
-                      </button>
-                    </form>
-                  )}
-                </td>
+        <div className="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Current node</th>
+                <th>Started</th>
+                <th>Ended</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {runs.length === 0 && <p className="empty">No runs yet.</p>}
+            </thead>
+            <tbody>
+              {runs.map((run) => (
+                <tr key={run.id}>
+                  <td>{run.contacts?.phone_e164 ?? run.contact_id}</td>
+                  <td>
+                    <Status value={run.status} />
+                  </td>
+                  <td>{run.current_node_id ?? "-"}</td>
+                  <td>{formatTime(run.started_at)}</td>
+                  <td>{formatTime(run.ended_at)}</td>
+                  <td>
+                    {run.status === "running" && (
+                      <form action={cancelRun}>
+                        <input type="hidden" name="journey_id" value={id} />
+                        <input type="hidden" name="run_id" value={run.id} />
+                        <button type="submit" className="danger">
+                          Cancel
+                        </button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {runs.length === 0 && <p className="empty">No runs yet.</p>}
+        </div>
 
         <h2>Start for contacts</h2>
         <p className="muted">
           One run per contact on the latest published version; a contact already running in this
           journey is skipped.
         </p>
-        <form action={startRuns}>
-          <input type="hidden" name="journey_id" value={id} />
-          <label>
-            Phone numbers (E.164, one per line or comma-separated)
-            <textarea name="phones" rows={3} required placeholder="+48600000001" />
-          </label>
-          <button type="submit">Start</button>
-        </form>
+        <div className="card">
+          <form action={startRuns}>
+            <input type="hidden" name="journey_id" value={id} />
+            <label>
+              Phone numbers (E.164, one per line or comma-separated)
+              <textarea name="phones" rows={3} required placeholder="+48600000001" />
+            </label>
+            <button type="submit">Start</button>
+          </form>
+        </div>
       </main>
     </>
   );
