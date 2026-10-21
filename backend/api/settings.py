@@ -19,6 +19,9 @@ class Settings:
     meta_webhook_verify_token: str
     wa_send_mode: str  # "test" or "live"; the PoC never sets live
     wa_allowed_test_recipients: frozenset[str]
+    temporal_address: str
+    temporal_namespace: str
+    temporal_api_key: str  # empty for the local dev server
 
 
 def load_settings() -> Settings:
@@ -40,6 +43,9 @@ def load_settings() -> Settings:
         wa_allowed_test_recipients=parse_allowlist(
             os.environ.get("WA_ALLOWED_TEST_RECIPIENTS", "")
         ),
+        temporal_address=os.environ.get("TEMPORAL_ADDRESS", "localhost:7233"),
+        temporal_namespace=os.environ.get("TEMPORAL_NAMESPACE", "default"),
+        temporal_api_key=os.environ.get("TEMPORAL_API_KEY", ""),
     )
 
 

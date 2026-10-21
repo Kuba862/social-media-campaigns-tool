@@ -9,6 +9,8 @@ from fastapi.responses import JSONResponse
 
 from api.auth import CurrentUser
 from api.db import Database
+from api.routes.journeys import router as journeys_router
+from api.routes.journeys import runs_router
 from api.routes.messages import router as messages_router
 from api.routes.templates import router as templates_router
 from api.routes.webhooks_meta import router as webhooks_router
@@ -35,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.meta_system_user_token
         else None
     )
+    app.state.runs = None
     try:
         yield
     finally:
@@ -45,6 +48,8 @@ app = FastAPI(title="WhatsApp campaigns API", lifespan=lifespan)
 app.include_router(templates_router)
 app.include_router(webhooks_router)
 app.include_router(messages_router)
+app.include_router(journeys_router)
+app.include_router(runs_router)
 
 STORAGE_STATUS: dict[type[StorageError], int] = {
     ConflictError: 409,

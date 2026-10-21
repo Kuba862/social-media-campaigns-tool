@@ -315,6 +315,23 @@ Konsekwencje: odpowiedź z wcześniejszej, niepowiązanej wiadomości też zosta
 webhook ją skieruje do tego przebiegu; dopasowanie po `context_wamid` należy do webhooka (5e).
 Testy używają `env.sleep` do przesuwania zegara i `start_signal` dla sygnałów sprzed startu.
 
+### 24. API journeys: publikacja = wersja, start przez bazę i Temporal, połączenie leniwe (2026-10-21)
+
+Decyzja: `POST /journeys/{id}/versions` przyjmuje surową definicję, sprawdza ją schematem z `core`
+i regułami grafu wobec zatwierdzonych szablonów, zapisuje bez zmian jako kolejny numer wersji
+z `published_at` i przełącza journey na `active`; nie ma wersji roboczych po stronie API, szkice
+żyją w edytorze (faza 4). `POST /journeys/{id}/runs` dla każdego kontaktu wstawia wiersz
+`journey_runs` i startuje `JourneyWorkflow` z identyfikatorem `journey:{journey_id}:contact:{contact_id}`
+na najnowszej wersji; konflikt z indeksu częściowego albo odmowa Temporal oznaczają "pominięty",
+nie błąd. `POST /runs/{id}/cancel` anuluje workflow i ustawia status wiersza; `GET /runs/{id}`
+dokłada stan z zapytania `current_state`. Klient Temporal powstaje przy pierwszym użyciu i jest
+trzymany w `app.state`; brak Temporal to 503 tylko dla tras, które go potrzebują.
+Powód: dwa niezależne strażniki jedynego aktywnego przebiegu, baza i Temporal, zgodnie z sekcją 4.2;
+leniwe połączenie pozwala uruchamiać API i testy e2e panelu bez serwera Temporal.
+Konsekwencje: API importuje `JourneyRunInput`, `JourneyWorkflow` i `TASK_QUEUE` z pakietu `worker`,
+czyli zależy od jego kontraktu; wiersz przebiegu, którego Temporal odmówił, dostaje status
+`cancelled`; segmenty jako filtr kontaktów (faza 3 w instrukcji) zostają na później.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -330,3 +347,5 @@ Testy używają `env.sleep` do przesuwania zegara i `start_signal` dla sygnałó
   cofaniem statusu wiadomości przy webhookach w złej kolejności (porządek sent < delivered < read).
 - Port porażki dla `send_template` w definicji i edytorze, zamiast kończenia przebiegu statusem
   `failed` przy pierwszej odmowie Meta.
+- Start przebiegów po prostym filtrze segmentu kontaktów (np. kraj, atrybut) zamiast listy
+  identyfikatorów; wersje robocze journey po stronie API, gdy edytor będzie zapisywał szkice.
