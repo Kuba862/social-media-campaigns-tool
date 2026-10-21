@@ -16,7 +16,9 @@ from storage.postgrest import PostgrestClient
 from worker.activities.hello import say_hello
 from worker.activities.journey import JourneyActivities
 from worker.activities.sync import SyncActivities
+from worker.dispatch import Dispatcher
 from worker.settings import load_settings
+from worker.temporal_runs import TemporalRuns
 from worker.workflows.hello import HelloWorkflow
 from worker.workflows.journey import TASK_QUEUE, JourneyWorkflow
 from worker.workflows.sync import SyncConnectorWorkflow
@@ -81,9 +83,10 @@ async def main() -> None:
         workflows=[HelloWorkflow, JourneyWorkflow, SyncConnectorWorkflow],
         activities=[say_hello, *journey.all(), *SyncActivities(db).all()],
     )
+    dispatcher = Dispatcher(db, TemporalRuns(client))
     logging.info("worker ready on %s, task queue %s", settings.temporal_address, TASK_QUEUE)
     try:
-        await worker.run()
+        await asyncio.gather(worker.run(), dispatcher.run_forever())
     finally:
         await http.aclose()
 
