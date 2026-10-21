@@ -283,6 +283,23 @@ Konsekwencje: ryzyko resztkowe z sekcji 4.3, awaria między odpowiedzią Meta a 
 może dać podwójną wysyłkę po ponowieniu; status `skipped_no_consent` wymaga migracji przy
 workflow (5c); błędy bazy klasyfikuje dopiero polityka ponowień w workflow.
 
+### 22. `JourneyWorkflow`: jeden interpreter, zgoda przed każdą wysyłką, porażka wysyłki kończy przebieg (2026-10-21)
+
+Decyzja: `worker/workflows/journey.py` interpretuje definicję z `core` w pętli po węzłach; wejściem
+jest `JourneyRunInput` z pełną migawką definicji, więc publikacja nowej wersji nie zmienia trwających
+przebiegów. Przed każdym `send_template` idzie `check_consent`, a brak zgody kończy przebieg statusem
+`skipped_no_consent` (migracja rozszerza ograniczenie `journey_runs.status`). Wynik `failed` z
+aktywności kończy przebieg statusem `failed`, bo definicja nie ma portu porażki. Licznik odwiedzin
+węzła daje trzeci człon klucza idempotencji. `update_contact` przeładowuje kontakt, żeby warunki
+`branch` widziały świeże atrybuty. Zapytanie `current_state` zwraca węzeł i powód oczekiwania.
+Węzeł `wait_for_reply` jest odrzucany do czasu kroku z sygnałami. Aktywności metodowe woła
+`execute_activity_method`, bo `execute_activity` jest typowane dla samodzielnych funkcji.
+Powód: sekcja 4.2 wymaga jednego generycznego workflow, determinizmu i zgody przed wysyłką;
+przeładowanie kontaktu po `update_contact` jest tańsze od duplikowania logiki scalania w workflow.
+Konsekwencje: porażka wysyłki w środku journey nie ma ścieżki alternatywnej (do rozważenia port
+porażki w edytorze, "Later"); polityka ponowień `send_template` to 5 prób od 2 s; testy workflow
+działają na serwerze testowym z przeskakiwaniem czasu, więc `wait` liczony w dniach trwa milisekundy.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -296,3 +313,5 @@ workflow (5c); błędy bazy klasyfikuje dopiero polityka ponowień w workflow.
   testowy w chmurze; do decyzji, gdy testów e2e będzie więcej niż jeden plik.
 - Webhook: konfigurowalna, wielojęzyczna lista słów opt-out (env lub tabela); ochrona przed
   cofaniem statusu wiadomości przy webhookach w złej kolejności (porządek sent < delivered < read).
+- Port porażki dla `send_template` w definicji i edytorze, zamiast kończenia przebiegu statusem
+  `failed` przy pierwszej odmowie Meta.
