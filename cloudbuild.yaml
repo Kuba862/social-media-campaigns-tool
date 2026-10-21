@@ -25,6 +25,9 @@ substitutions:
 steps:
   - id: build
     name: gcr.io/cloud-builders/docker
+    # The Dockerfile needs BuildKit (RUN --mount, COPY --chmod, ARG TARGETARCH);
+    # the Cloud Build docker step uses the legacy builder unless told otherwise.
+    env: ["DOCKER_BUILDKIT=1"]
     args:
       - build
       - --tag
