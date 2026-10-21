@@ -2,6 +2,10 @@
 
 import asyncio
 import logging
+import os
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 import httpx
 from temporalio.client import Client
@@ -18,8 +22,32 @@ from worker.workflows.journey import TASK_QUEUE, JourneyWorkflow
 from worker.workflows.sync import SyncConnectorWorkflow
 
 
+class _Health(BaseHTTPRequestHandler):
+    """200 on /healthz, nothing else; for a Cloud Run *service* that must listen on $PORT."""
+
+    def do_GET(self) -> None:
+        ok = self.path == "/healthz"
+        self.send_response(200 if ok else 404)
+        self.end_headers()
+        self.wfile.write(b"ok" if ok else b"")
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
+
+
+def serve_health_if_requested() -> None:
+    """Cloud Run worker pools need no port; a service does, so honour $PORT when it is set."""
+    port = os.environ.get("PORT")
+    if not port:
+        return
+    server = ThreadingHTTPServer(("", int(port)), _Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    logging.info("health endpoint on :%s/healthz", port)
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
+    serve_health_if_requested()
     settings = load_settings()
     client = await Client.connect(
         settings.temporal_address,
