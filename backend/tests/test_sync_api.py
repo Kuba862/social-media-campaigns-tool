@@ -67,7 +67,7 @@ def test_run_now_and_schedule_go_through_temporal(
     assert (scheduled.json()["schedule_id"], scheduled.json()["paused"]) == ("sync:fake", False)
     assert temporal.schedules == {"fake": ("0 * * * *", True)}
     listed = client.get("/sync/connectors").json()
-    assert [(c["name"], c["schedule"]["cron"]) for c in listed] == [("fake", ["0 * * * *"])]
+    assert [(c["name"], c["schedule"]["paused"]) for c in listed] == [("fake", False)]
     assert client.post("/sync/connectors/postgres/run").status_code == 404  # not registered
 
 

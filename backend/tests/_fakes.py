@@ -174,10 +174,5 @@ class FakeTemporal:
     async def schedule_info(self, connector: str) -> dict[str, Any] | None:
         if connector not in self.schedules:
             return None
-        cron, enabled = self.schedules[connector]
-        return {
-            "paused": not enabled,
-            "cron": [cron],
-            "next_run_at": "2026-10-22T00:00:00+00:00",
-            "runs": 0,
-        }
+        _, enabled = self.schedules[connector]
+        return {"paused": not enabled, "next_run_at": "2026-10-22T00:00:00+00:00", "runs": 0}
