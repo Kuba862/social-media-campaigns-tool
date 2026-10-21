@@ -386,6 +386,26 @@ Demo end-to-end na numerach testowych czeka na konto Meta po stronie właścicie
 od formatu historii SDK (protobuf JSON, stabilny), ma identyfikator `journey:j-1:contact:c-1`
 i czasy serwera testowego, bez sekretów.
 
+### 27. Szkice journey w API: jedna nieopublikowana wersja, kształt teraz, treść przy publikacji (2026-10-21)
+
+Decyzja: szkic edytora to wiersz `journey_versions` bez `published_at`; indeks częściowy
+`journey_versions_one_draft_idx` dopuszcza jeden taki wiersz na journey. `PUT /journeys/{id}/draft`
+zakłada szkic z kolejnym numerem wersji albo nadpisuje istniejący (definicję i `layout` w całości)
+i sprawdza tylko kształt (`schema_version` 1, listy `nodes` do 50 i `edges` do 200), bo
+niedokończony węzeł, np. `send_template` bez szablonu, musi dać się zapisać.
+`POST /journeys/{id}/publish` robi pełną walidację (schemat i reguły grafu wobec zatwierdzonych
+szablonów), ustawia `published_at` i przełącza journey na `active`; szkic zachowuje swój numer.
+Pozycje węzłów na kanwie leżą w nowej kolumnie `journey_versions.layout` (id węzła → x, y), nie
+w definicji, która pozostaje ścisłym wejściem silnika. `GET /journeys/{id}` zwraca journey ze
+wszystkimi wersjami od najstarszej. Start przebiegów bierze najnowszą opublikowaną wersję i pomija
+szkic. `POST /journeys/{id}/versions` zostaje dla klientów API.
+Powód: edytor (kroki 6c–6e) zapisuje w trakcie pracy, a serwer ma być autorytatywny przy
+publikacji (sekcja 6, faza 4); wersja opublikowana musi pozostać niezmienna (sekcja 3).
+Konsekwencje: numer wersji jest nadawany przy założeniu szkicu, więc publikacja przez
+`POST /versions` w czasie życia szkicu da wersję o wyższym numerze, ale wcześniejszej dacie;
+porządek wersji to numer, nie data. Równoległy zapis dwóch szkiców kończy się 409 z indeksu.
+`PUT` zastępuje także `layout`, więc edytor zawsze wysyła komplet pozycji.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

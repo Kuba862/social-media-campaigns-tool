@@ -43,6 +43,13 @@ def client(
     app.dependency_overrides.clear()
 
 
+HALF: dict[str, Any] = {  # an editor in progress: the send node has no template yet
+    "schema_version": 1,
+    "nodes": [{"id": "start", "type": "start"}, {"id": "n1", "type": "send_template"}],
+    "edges": [],
+}
+
+
 def published(client: TestClient, definition: dict[str, Any]) -> str:
     journey_id: str = client.post("/journeys", json={"name": "welcome"}).json()["id"]
     assert client.post(f"/journeys/{journey_id}/versions", json=definition).status_code == 201
@@ -107,6 +114,11 @@ def test_start_needs_a_published_version(client: TestClient) -> None:
         client.post(f"/journeys/{journey_id}/runs", json={"contact_ids": ["c-1"]}).status_code
         == 409
     )
+    client.put(f"/journeys/{journey_id}/draft", json={"definition": HALF})  # a draft is not enough
+    assert (
+        client.post(f"/journeys/{journey_id}/runs", json={"contact_ids": ["c-1"]}).status_code
+        == 409
+    )
     assert client.post("/journeys/nope/runs", json={"contact_ids": ["c-1"]}).status_code == 404
 
 
@@ -126,3 +138,59 @@ def test_list_get_and_cancel_runs(
     assert temporal.cancelled == [f"journey:{journey_id}:contact:c-1"]
     assert client.post(f"/runs/{run_id}/cancel").status_code == 409
     assert "live" not in client.get(f"/runs/{run_id}").json()
+
+
+def test_draft_is_saved_in_place_and_listed_with_the_journey(client: TestClient) -> None:
+    journey_id = client.post("/journeys", json={"name": "welcome"}).json()["id"]
+    layout = {"start": {"x": 0, "y": 0}, "n1": {"x": 240, "y": 0}}
+    first = client.put(f"/journeys/{journey_id}/draft", json={"definition": HALF, "layout": layout})
+    assert first.status_code == 200 and first.json()["published_at"] is None
+    assert first.json()["layout"] == {"start": {"x": 0.0, "y": 0.0}, "n1": {"x": 240.0, "y": 0.0}}
+    whole = {**HALF, "edges": [{"from": "start", "to": "n1"}]}
+    second = client.put(f"/journeys/{journey_id}/draft", json={"definition": whole}).json()
+    assert (second["id"], second["version"]) == (first.json()["id"], 1)
+    assert (second["definition"], second["layout"]) == (whole, {})  # PUT replaces both
+    detail = client.get(f"/journeys/{journey_id}").json()
+    assert detail["name"] == "welcome" and [v["version"] for v in detail["versions"]] == [1]
+    assert client.get("/journeys/nope").status_code == 404
+
+
+def test_draft_shape_is_checked_but_content_is_not(client: TestClient) -> None:
+    journey_id = client.post("/journeys", json={"name": "welcome"}).json()["id"]
+    wrong_shapes: list[dict[str, Any]] = [
+        {**HALF, "nodes": "x"},
+        {**HALF, "schema_version": 2},
+        {"nodes": [], "edges": []},
+    ]
+    for bad in wrong_shapes:
+        response = client.put(f"/journeys/{journey_id}/draft", json={"definition": bad})
+        assert response.status_code == 422
+    assert client.put("/journeys/nope/draft", json={"definition": HALF}).status_code == 404
+    assert client.post("/journeys/nope/publish").status_code == 404
+
+
+def test_publish_validates_the_draft_and_keeps_its_number(
+    client: TestClient, db: FakeDb, temporal: FakeTemporal, guide_example_json: dict[str, Any]
+) -> None:
+    journey_id = published(client, guide_example_json)  # version 1 through POST /versions
+    assert client.post(f"/journeys/{journey_id}/publish").status_code == 404  # nothing drafted
+    nodes = [
+        dict(n, template_id="nope") if n["id"] == "n1" else n for n in guide_example_json["nodes"]
+    ]
+    client.put(
+        f"/journeys/{journey_id}/draft", json={"definition": {**guide_example_json, "nodes": nodes}}
+    )
+    rejected = client.post(f"/journeys/{journey_id}/publish")
+    assert rejected.status_code == 422 and "not APPROVED" in rejected.json()["detail"][0]
+    client.post(f"/journeys/{journey_id}/runs", json={"contact_ids": ["c-1"]})
+    assert temporal.started[0][1].definition == guide_example_json  # runs ignore the draft
+    layout = {"n1": {"x": 10, "y": 20}}
+    client.put(
+        f"/journeys/{journey_id}/draft", json={"definition": guide_example_json, "layout": layout}
+    )
+    row = client.post(f"/journeys/{journey_id}/publish").json()
+    assert (row["version"], row["layout"]) == (2, {"n1": {"x": 10.0, "y": 20.0}})
+    assert row["published_at"] is not None and db.rows("journeys")[0]["status"] == "active"
+    versions = client.get(f"/journeys/{journey_id}").json()["versions"]
+    assert [(v["version"], v["published_at"] is None) for v in versions] == [(1, False), (2, False)]
+    assert client.post(f"/journeys/{journey_id}/publish").status_code == 404  # consumed

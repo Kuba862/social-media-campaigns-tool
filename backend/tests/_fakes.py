@@ -44,6 +44,11 @@ class FakeDb:
             for r in self.rows(table)
         ):
             raise ConflictError("duplicate key value violates unique constraint")
+        if table == "journey_versions" and any(
+            r["journey_id"] == row["journey_id"] and r.get("published_at") is None
+            for r in self.rows(table)
+        ):
+            raise ConflictError("duplicate key value violates unique constraint")
         return self._store(table, row)
 
     async def update(self, table: str, row_id: str, changes: Row) -> Row:
