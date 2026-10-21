@@ -701,6 +701,23 @@ dostaje stały identyfikator; blokada wiersza przez `select ... for update skip 
 na później, gdy workerów będzie więcej); testy dyspozytora używają `WorkflowEnvironment.start_local()`
 (serwer dev z harmonogramami), bo serwer time-skipping nie obsługuje harmonogramów.
 
+### 43. PoC bez Temporal Cloud: serwer dev Temporala wbudowany w obraz workera (2026-10-21)
+
+Decyzja: obraz workera zawiera binarkę CLI Temporala 1.9.1 (pobieraną przy budowaniu dla
+architektury obrazu), a `docker-entrypoint.sh` przy `TEMPORAL_EMBEDDED=true` uruchamia
+`temporal server start-dev --ip 127.0.0.1 --headless --db-filename /tmp/temporal.db`, czeka na
+jego zdrowie i dopiero wtedy startuje workera z adresem `127.0.0.1:7233`. Jeden kontener, jedna
+instancja worker poola (1 vCPU, 1 GiB), serwer dostępny tylko z wnętrza instancji, więc brak
+uwierzytelniania w serwerze dev nie jest wystawiony na świat (API i tak nie łączy się
+z Temporalem, wpis 41). `cloudbuild.yaml` domyślnie włącza tryb wbudowany; przejście na Temporal
+Cloud to substytucje `_TEMPORAL_EMBEDDED=false`, adres, namespace i sekret z kluczem API.
+Powód: właściciel nie chce teraz kupować Temporal Cloud, PoC ma jedną wiadomość i krótkie
+czekanie; Temporal to oprogramowanie open source, więc ten sam silnik, kod i testy zostają.
+Konsekwencje: historie workflow żyją na dysku instancji, nowa wersja lub wymiana instancji
+kasuje przebiegi w toku, a dyspozytor po starcie oznacza je `failed` (sprawdzone: kontener usunięty
+w trakcie przebiegu, następny worker oznaczył wiersz); obraz ma ok. 440 MB; to rozwiązanie nie
+nadaje się do czekania dniami ani do więcej niż jednej instancji, czyli dokładnie do zakresu PoC.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

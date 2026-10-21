@@ -7,16 +7,21 @@ substitutions:
   _REGION: europe-west1
   _REPO: wa
   _POOL: wa-worker
-  _TEMPORAL_ADDRESS: "" # <namespace>.<account>.tmprl.cloud:7233
-  _TEMPORAL_NAMESPACE: "" # <namespace>.<account>
+  # PoC: the worker runs its own Temporal dev server (decision 43). For Temporal Cloud set
+  # _TEMPORAL_EMBEDDED=false, the address <namespace>.<account>.tmprl.cloud:7233, the namespace
+  # <namespace>.<account>, and add TEMPORAL_API_KEY=temporal-api-key:latest to _SECRETS.
+  _TEMPORAL_EMBEDDED: "true"
+  _TEMPORAL_ADDRESS: 127.0.0.1:7233
+  _TEMPORAL_NAMESPACE: default
   _SUPABASE_URL: ""
   _WA_ALLOWED_TEST_RECIPIENTS: "" # E.164 numbers separated by commas
   _META_GRAPH_VERSION: v24.0
   _META_WABA_ID: ""
   _META_PHONE_NUMBER_ID: ""
-  # Secret Manager names; extend with META_SYSTEM_USER_TOKEN=meta-system-user-token:latest and
-  # SYNC_POSTGRES_DSN=sync-postgres-dsn:latest once those secrets exist.
-  _SECRETS: TEMPORAL_API_KEY=temporal-api-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
+  # Secret Manager names; extend with META_SYSTEM_USER_TOKEN=meta-system-user-token:latest,
+  # SYNC_POSTGRES_DSN=sync-postgres-dsn:latest and TEMPORAL_API_KEY=temporal-api-key:latest
+  # once those secrets exist.
+  _SECRETS: SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
 steps:
   - id: build
     name: gcr.io/cloud-builders/docker
@@ -43,8 +48,10 @@ steps:
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$BUILD_ID
       - --region=${_REGION}
       - --instances=1
+      - --memory=1Gi
+      - --cpu=1
       # "^|^" makes "|" the separator, so a comma-separated recipient list survives.
-      - --set-env-vars=^|^TEMPORAL_ADDRESS=${_TEMPORAL_ADDRESS}|TEMPORAL_NAMESPACE=${_TEMPORAL_NAMESPACE}|SUPABASE_URL=${_SUPABASE_URL}|WA_SEND_MODE=test|WA_ALLOWED_TEST_RECIPIENTS=${_WA_ALLOWED_TEST_RECIPIENTS}|META_GRAPH_VERSION=${_META_GRAPH_VERSION}|META_WABA_ID=${_META_WABA_ID}|META_PHONE_NUMBER_ID=${_META_PHONE_NUMBER_ID}
+      - --set-env-vars=^|^TEMPORAL_EMBEDDED=${_TEMPORAL_EMBEDDED}|TEMPORAL_ADDRESS=${_TEMPORAL_ADDRESS}|TEMPORAL_NAMESPACE=${_TEMPORAL_NAMESPACE}|SUPABASE_URL=${_SUPABASE_URL}|WA_SEND_MODE=test|WA_ALLOWED_TEST_RECIPIENTS=${_WA_ALLOWED_TEST_RECIPIENTS}|META_GRAPH_VERSION=${_META_GRAPH_VERSION}|META_WABA_ID=${_META_WABA_ID}|META_PHONE_NUMBER_ID=${_META_PHONE_NUMBER_ID}
       - --set-secrets=${_SECRETS}
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$BUILD_ID
