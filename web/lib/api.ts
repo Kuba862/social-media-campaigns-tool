@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-type Options = { method?: "GET" | "POST"; body?: unknown };
+type Options = { method?: "GET" | "POST" | "PUT"; body?: unknown };
 
 function detailOf(payload: unknown): string | null {
   if (payload && typeof payload === "object" && "detail" in payload) {
