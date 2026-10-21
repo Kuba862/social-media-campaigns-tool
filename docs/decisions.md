@@ -681,6 +681,26 @@ Konsekwencje: opóźnienie startu przebiegu o interwał odpytywania kolejki (sek
 nie dostaje 503 z powodu Temporala; przebieg z `queued`, którego worker nie zdąży przejąć, czeka
 w kolejce; usunięty test "awaria połączenia z Temporal" w webhooku, bo webhook już go nie dotyka.
 
+### 42. Dyspozytor w workerze: kolejka w kolejności, pięć prób, martwa kolejka, sprzątanie po restarcie (2026-10-21)
+
+Decyzja: `worker/dispatch.py` (`Dispatcher`) działa obok `worker.run()` w tym samym procesie:
+co 2 s pobiera otwarte wiersze `dispatch_queue` od najstarszego i wykonuje je na Temporalu przez
+`worker/temporal_runs.py` (start przebiegu i zmiana wiersza na `running`, anulowanie, sygnały,
+start synchronizacji z identyfikatorem nadanym przez API, nałożenie harmonogramu i zapis
+`schedule_state`). Nieudane polecenie dostaje `attempts` i `error` i wraca w następnej turze;
+po pięciu próbach jest zamykane z błędem (martwa kolejka, widoczna w tabeli). Odmowa Temporala
+dla aktywnego identyfikatora (`RunAlreadyActive`) oznacza wiersz przebiegu jako `cancelled`, jak
+dawniej robiło API. Przy starcie dyspozytor uzgadnia wiersze `running` z Temporalem: workflow
+nieznany (np. serwer dev bez trwałości po restarcie) to `failed`, zakończony to jego końcowy
+status. Co 5 minut odświeża `schedule_state` (następne uruchomienie, liczba uruchomień).
+Powód: wpis 41 przeniósł wszystkie wywołania Temporala do workera; kolejność i ponowienia
+w jednym miejscu dają trwałe sygnały i prosty model błędów.
+Konsekwencje: jeden dyspozytor na proces workera, więc przy dwóch instancjach to samo polecenie
+może być wykonane dwa razy (start i sygnały są idempotentne po stronie Temporala, `start_sync`
+dostaje stały identyfikator; blokada wiersza przez `select ... for update skip locked` to praca
+na później, gdy workerów będzie więcej); testy dyspozytora używają `WorkflowEnvironment.start_local()`
+(serwer dev z harmonogramami), bo serwer time-skipping nie obsługuje harmonogramów.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -706,3 +726,5 @@ w kolejce; usunięty test "awaria połączenia z Temporal" w webhooku, bo webhoo
   opróżniana przez workera) zamiast samego ostrzeżenia w logu.
 - Edytor: dopasowanie widoku (`fitView`) po pierwszym renderze bywa za wczesne, gdy kanwa
   jeszcze nie ma rozmiaru; do sprawdzenia `onInit` albo `ResizeObserver` na kontenerze.
+- Dyspozytor przy kilku instancjach workera: pobieranie poleceń z blokadą wiersza (funkcja SQL
+  z `for update skip locked` wywoływana przez PostgREST) zamiast zwykłego `select`.
