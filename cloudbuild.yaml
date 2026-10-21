@@ -1,6 +1,8 @@
 # Cloud Build: build the worker image and deploy it to a Cloud Run worker pool (docs/deploy-cloud-run.md).
-# Trigger: push to master. Non-secret settings are substitutions on the trigger; secrets stay in
-# Secret Manager and reach the container through --set-secrets.
+# Runs the same way from a GitHub trigger, from `gcloud builds submit --config cloudbuild.yaml .`
+# on a laptop, or from the deploy-worker GitHub Actions workflow. Non-secret settings are
+# substitutions; secrets stay in Secret Manager and reach the container through --set-secrets.
+# Images are tagged with $BUILD_ID, which exists in every kind of build ($SHORT_SHA only in triggers).
 substitutions:
   _REGION: europe-west1
   _REPO: wa
@@ -21,7 +23,7 @@ steps:
     args:
       - build
       - --tag
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$BUILD_ID
       - --tag
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:latest
       - --file
@@ -38,14 +40,14 @@ steps:
       - worker-pools
       - deploy
       - ${_POOL}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$BUILD_ID
       - --region=${_REGION}
       - --instances=1
       # "^|^" makes "|" the separator, so a comma-separated recipient list survives.
       - --set-env-vars=^|^TEMPORAL_ADDRESS=${_TEMPORAL_ADDRESS}|TEMPORAL_NAMESPACE=${_TEMPORAL_NAMESPACE}|SUPABASE_URL=${_SUPABASE_URL}|WA_SEND_MODE=test|WA_ALLOWED_TEST_RECIPIENTS=${_WA_ALLOWED_TEST_RECIPIENTS}|META_GRAPH_VERSION=${_META_GRAPH_VERSION}|META_WABA_ID=${_META_WABA_ID}|META_PHONE_NUMBER_ID=${_META_PHONE_NUMBER_ID}
       - --set-secrets=${_SECRETS}
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$BUILD_ID
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:latest
 options:
   logging: CLOUD_LOGGING_ONLY
