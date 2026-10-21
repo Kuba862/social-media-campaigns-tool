@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import HTTPException
+from storage.postgrest import ConflictError, NotFoundError
 
 from meta_client import CreatedTemplate, MetaError, SendResult, TemplateSpec, TemplateState
 
@@ -27,7 +27,7 @@ class FakeDb:
         if table == "templates" and any(
             r["name"] == row["name"] and r["language"] == row["language"] for r in self.rows(table)
         ):
-            raise HTTPException(409, "duplicate key value violates unique constraint")
+            raise ConflictError("duplicate key value violates unique constraint")
         return self._store(table, row)
 
     async def update(self, table: str, row_id: str, changes: Row) -> Row:
@@ -35,7 +35,7 @@ class FakeDb:
             if row["id"] == row_id:
                 row.update(changes)
                 return row
-        raise HTTPException(404, f"{table} row not found")
+        raise NotFoundError(f"{table} row not found")
 
     async def insert_ignore(self, table: str, row: Row, on_conflict: str) -> Row | None:
         if self._find(table, row, on_conflict) is not None:
