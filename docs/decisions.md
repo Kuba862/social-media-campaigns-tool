@@ -353,6 +353,39 @@ Konsekwencje: przy STOP w `wait_for_reply` przebieg dostaje najpierw `inbound_me
 jest sygnalizowane później (brak kolejki ponowień); taki przebieg skończy się timeoutem
 `wait_for_reply`. Wiadomość bez `run_id` (wysyłka testowa) nigdy nie sygnalizuje.
 
+### 26. Test replay z nagranej historii i mapa scenariuszy akceptacyjnych fazy 3 (2026-10-21)
+
+Decyzja: historia jednego zakończonego przebiegu journey z sekcji 4.1 (wysyłka, dwa dni czekania,
+`wait_for_reply`, odpowiedź przyciskiem, `update_contact`) jest nagrana na serwerze time-skipping
+przez `tests/record_replay_history.py` i trzymana w repo jako
+`tests/fixtures/temporal/journey_guide_example_history.json` (94 zdarzenia, 46 KB).
+`tests/test_journey_replay.py` odtwarza ją przez `temporalio.worker.Replayer` na bieżącym kodzie
+`JourneyWorkflow`, czyli robi to, co worker po restarcie, i osobno dowodzi, że wariant z jedną
+dodatkową komendą kończy się `NondeterminismError`. Po celowej zmianie kolejności komend:
+`workflow.patched()` i nowe nagranie tym samym poleceniem; samo nagranie od nowa bez `patched()`
+ukryłoby niezgodność dla przebiegów trwających w produkcji. Scenariusz "aktywność pada po wywołaniu
+Meta" symuluje `FakeDb.lost_responses`: zapis `wamid` się udaje, odpowiedź "ginie", Temporal
+ponawia aktywność, która znajduje `wamid` (krok 2 z sekcji 4.3), więc Meta dostaje jedno wywołanie.
+Powód: sekcja 6 wymaga ośmiu scenariuszy na `start_time_skipping()`, a sekcja 4.2 testu replay dla
+każdej wydanej wersji; nagranie w repo jest jedynym sposobem, by test sprawdzał kod wobec historii
+starszej niż on sam.
+Konsekwencje: mapa scenariuszy z sekcji 6 (Phase 3) na testy, do raportu w fazie 5:
+
+| Scenariusz | Test |
+|---|---|
+| happy path | `test_journey_workflow::test_happy_path_sends_waits_updates_and_branches` |
+| reply before timeout | `test_journey_signals::test_button_reply_before_timeout_takes_the_replied_port` |
+| timeout path | `test_journey_signals::test_no_reply_takes_the_timeout_port` |
+| branch by button payload | j.w. oraz `test_journey_signals::test_text_reply_without_button_takes_the_else_branch` |
+| opt-out mid-journey | `test_journey_signals::test_opt_out_during_a_wait_ends_the_run_at_once` i `..._before_the_first_send_sends_nothing` |
+| no-consent skip | `test_journey_workflow::test_no_consent_skips_the_run_before_any_send` |
+| send retry without duplicate | `test_journey_workflow::test_transient_meta_error_is_retried_without_a_second_send` (błąd przed Meta) i `..._crash_after_the_meta_call_is_retried_without_a_second_send` (po Meta) |
+| worker restart (replay) | `test_journey_replay::test_current_code_replays_the_recorded_history` |
+
+Demo end-to-end na numerach testowych czeka na konto Meta po stronie właściciela. Fixture zależy
+od formatu historii SDK (protobuf JSON, stabilny), ma identyfikator `journey:j-1:contact:c-1`
+i czasy serwera testowego, bez sekretów.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

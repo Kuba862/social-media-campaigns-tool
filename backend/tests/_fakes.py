@@ -11,7 +11,7 @@ from meta_client import (
     TemplateSpec,
     TemplateState,
 )
-from storage.postgrest import ConflictError, NotFoundError
+from storage.postgrest import ConflictError, NotFoundError, StorageUnavailable
 from worker.workflows.journey import JourneyRunInput, ReplySignal
 
 Row = dict[str, Any]
@@ -22,6 +22,7 @@ class FakeDb:
 
     def __init__(self) -> None:
         self.tables: dict[str, list[Row]] = {}
+        self.lost_responses: dict[str, int] = {}  # table -> updates that commit, then "time out"
         self._next_id = 0
 
     def rows(self, table: str) -> list[Row]:
@@ -49,6 +50,9 @@ class FakeDb:
         for row in self.rows(table):
             if row["id"] == row_id:
                 row.update(changes)
+                if self.lost_responses.get(table, 0) > 0:
+                    self.lost_responses[table] -= 1
+                    raise StorageUnavailable("response lost after the write")
                 return row
         raise NotFoundError(f"{table} row not found")
 

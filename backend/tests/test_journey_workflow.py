@@ -132,3 +132,16 @@ async def test_branch_takes_else_when_no_condition_matches() -> None:
     }
     assert await run_journey(acts, definition) == "completed"
     assert len(meta.sent) == 1  # bye was skipped
+
+
+@pytest.mark.anyio
+async def test_crash_after_the_meta_call_is_retried_without_a_second_send() -> None:
+    """Guide 4.3 step 2: the retry finds the stored wamid and never calls Meta again."""
+    db, meta, acts = seeded()
+    db.lost_responses["messages"] = 1  # the wamid is written, then the activity fails
+    assert await run_journey(acts) == "completed"
+    assert [sent[3] for sent in meta.sent] == [["Ala"], []]  # hello once, bye once
+    assert [(m["node_id"], m["wamid"]) for m in db.rows("messages")] == [
+        ("hello", "wamid.T1"),
+        ("bye", "wamid.T2"),
+    ]
