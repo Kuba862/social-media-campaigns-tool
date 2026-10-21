@@ -36,7 +36,7 @@ async def get_runs(request: Request) -> JourneyRuns:
     if runs is None:
         try:
             runs = await connect(request.app.state.settings)
-        except RPCError as exc:
+        except (RPCError, RuntimeError) as exc:  # the SDK bridge raises RuntimeError on connect
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE, "Temporal unavailable"
             ) from exc
