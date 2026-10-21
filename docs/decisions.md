@@ -239,6 +239,19 @@ tabel przez PostgREST zamiast własnego JOIN-a.
 Konsekwencje: prawdziwe zgody przyjdą z konektora w fazie 4; panel i log to krok 4b; wysyłkę na
 żywo da się sprawdzić dopiero z tokenem Meta i numerem testowym.
 
+### 19. Panel: wysyłka testowa przy zatwierdzonym szablonie, log z osadzonych tabel, e2e przez webhook (2026-10-21)
+
+Decyzja: formularz "Send test" renderuje się tylko przy szablonie `APPROVED`, w tej samej tabeli co
+akcje; po wysłaniu panel przechodzi na `/messages`, a błąd API wraca na `/templates`. Strona logu
+czyta jedno `GET /messages` z osadzonymi `templates`, `contacts` i `message_events` i pokazuje
+zdarzenia dostarczenia w kolejności czasu. Test Playwright zatwierdza świeży szkic podpisanym
+webhookiem do lokalnego API, dlatego `backend/.env` trzyma testowe `META_APP_SECRET` i
+`META_WEBHOOK_VERIFY_TOKEN` o wartościach wpisanych w teście.
+Powód: zatwierdzenie przez webhook to jedyna droga do stanu `APPROVED` bez konta Meta, a przy
+okazji test przechodzi przez cały łańcuch: przeglądarka, serwer Next, API, PostgREST, webhook.
+Konsekwencje: asercje e2e nie mogą zakładać pustej bazy (log może mieć wiersze z wcześniejszych
+prób); sekrety e2e są jawnie testowe i nigdy nie trafiają do repo poza stałą w teście.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
