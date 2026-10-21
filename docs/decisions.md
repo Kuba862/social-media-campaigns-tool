@@ -505,6 +505,26 @@ słownika szablonów w widoku węzła); dopasowanie widoku po pierwszym renderze
 (przycisk Fit View w kontrolkach); API w trybie dev warto uruchamiać z `--reload`, bo bez tego
 zmiany w kodzie nie są widoczne, co kosztowało jedną turę przy tym kroku.
 
+### 33. Ramka synchronizacji: konektor tylko czyta i mapuje, reszta jest wspólna (2026-10-21)
+
+Decyzja: `backend/sync/framework.py` daje kontrakt `Connector` z sekcji 5 (`name`,
+`default_region`, `extract(since)`, `map(record) -> ContactUpsert`) oraz całą resztę: numery
+normalizuje `phonenumbers` do E.164 (numer bez prefiksu przechodzi tylko z `default_region`
+konektora; numer niepoprawny jest liczony jako `invalid` i pomijany, nigdy zgadywany), kontakt
+dopasowuje się najpierw po `external_ref`, potem po numerze (osoba może zmienić numer),
+kolumny ustawia się tylko gdy konektor je podał, `attributes` są scalane, a zgoda dopisywana
+tylko gdy różni się od ostatniej (tabela jest append-only). Statystyki: `extracted`, `inserted`,
+`updated`, `unchanged`, `consents`, `invalid`. `run_sync` robi całość partiami bez Temporal
+(testy, debugowanie); workflow z 7b użyje `map_records` i `sync_batch` jako aktywności.
+Rejestr `sync/connectors/build(name, config)` buduje konektor z nazwy wiersza `sync_connectors`
+i jego `config`; `fake` ma cztery rekordy w pamięci (E.164, numer regionalny, numer błędny,
+opt-out) i przełącznik `fail` do testów ścieżki błędu.
+Powód: sekcja 5 wymaga, by upsert i normalizacja były w ramce, a konektory były zaufanym kodem
+w repo; jedna ścieżka zapisu daje jedne statystyki i jedną politykę zgód.
+Konsekwencje: dopasowanie po `external_ref` z numerem, który ma już inny kontakt, kończy się
+konfliktem unikalności (409 z PostgREST) i przerywa partię; deduplikacji osób nie ma w PoC.
+Nowa zależność `phonenumbers` (wymieniona w sekcji 5).
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
