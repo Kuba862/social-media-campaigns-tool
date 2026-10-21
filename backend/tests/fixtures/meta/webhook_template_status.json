@@ -1,0 +1,33 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WABA1",
+      "time": 1750263773,
+      "changes": [
+        {
+          "field": "message_template_status_update",
+          "value": {
+            "event": "APPROVED",
+            "message_template_id": 1259544702043867,
+            "message_template_name": "welcome_offer",
+            "message_template_language": "pl",
+            "reason": "NONE",
+            "message_template_category": "MARKETING"
+          }
+        },
+        {
+          "field": "message_template_status_update",
+          "value": {
+            "event": "REJECTED",
+            "message_template_id": 1259544702043868,
+            "message_template_name": "welcome_offer",
+            "message_template_language": "en_US",
+            "reason": "INVALID_FORMAT",
+            "message_template_category": "MARKETING"
+          }
+        }
+      ]
+    }
+  ]
+}
