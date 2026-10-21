@@ -525,6 +525,23 @@ Konsekwencje: dopasowanie po `external_ref` z numerem, który ma już inny konta
 konfliktem unikalności (409 z PostgREST) i przerywa partię; deduplikacji osób nie ma w PoC.
 Nowa zależność `phonenumbers` (wymieniona w sekcji 5).
 
+### 34. `SyncConnectorWorkflow`: wiersz przebiegu otwierany pierwszą aktywnością, partie po 100, `since` ze startu ostatniego sukcesu (2026-10-21)
+
+Decyzja: workflow dostaje tylko nazwę konektora; `begin_run` czyta wiersz `sync_connectors`
+(konfiguracja bez sekretów), liczy `since` jako `started_at` ostatniego udanego przebiegu tego
+konektora i zakłada wiersz `sync_runs` ze statusem `running`. `extract` ściąga całą listę
+zmienionych rekordów (heartbeat co 100), `write_batch` zapisuje partie po 100 przez ramkę z 7a
+(heartbeat po partii), `finish_run` zapisuje `succeeded` ze statystykami albo `failed` z treścią
+błędu; po błędzie workflow kończy się niepowodzeniem, więc harmonogram i panel widzą to samo.
+Aktywności mają limity: wiersze 30 s, ekstrakcja 30 min, zapis partii 5 min, heartbeat 2 min,
+trzy próby. Nieznany konektor kończy się bez wiersza przebiegu (`ApplicationError`, bez ponowień).
+Powód: sekcja 5 każe uruchamiać konektory jako workflow z harmonogramu, a ekstrakcję i upsert
+jako aktywności z heartbeatem; `since` od startu, nie końca, poprzedniego przebiegu, żeby zmiany
+zapisane w źródle w trakcie synchronizacji nie przepadły.
+Konsekwencje: lista rekordów wraca z `extract` w całości, więc bardzo duże źródła (dziesiątki
+tysięcy wierszy) wymagałyby ekstrakcji stronami w kolejnych aktywnościach, czego PoC nie robi;
+wszystko jedzie na kolejce `wa-journeys`, jeden worker obsługuje journeys i synchronizację.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
