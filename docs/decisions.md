@@ -585,6 +585,19 @@ Konsekwencje: zmiana crona w wierszu nie działa, dopóki ktoś nie nałoży har
 przebieg trwający dłużej niż interwał nie dubluje się; harmonogram na lokalnym serwerze dev
 znika z jego restartem (dane w pamięci).
 
+### 37. Panel synchronizacji: jedna strona na konektory, rejestrację i przebiegi (2026-10-21)
+
+Decyzja: `/sync` pokazuje wiersze konektorów ze stanem harmonogramu z Temporal (pauza, następne
+uruchomienie, liczba uruchomień albo "not scheduled"), przyciski Run now i Apply schedule,
+formularz "zarejestruj lub zaktualizuj" (nazwa z listy znanych modułów, cron, włączony, config
+jako JSON bez sekretów, walidowany w akcji serwera przed wysłaniem) oraz listę przebiegów ze
+statystykami bez zerowych liczników i treścią błędu. Nawigacja dostaje piąty link "Sync".
+Powód: sekcja 6 (faza 4) wymaga widoku `sync_runs`; rejestracja z panelu pozwala właścicielowi
+podpiąć konektor bez psql, a lista konektorów w formularzu jest odbiciem rejestru w kodzie.
+Konsekwencje: lista nazw konektorów w `web/lib/sync.ts` trzeba uzupełnić przy każdym nowym module
+(API i tak odrzuci nieznaną nazwę); w testach Playwright tabele mają `aria-label`, a pola wybiera
+się po `name`, bo `getByLabel("Connector")` trafiało też w tabelę "Connectors".
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
