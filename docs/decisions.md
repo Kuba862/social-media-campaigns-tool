@@ -208,6 +208,21 @@ Konsekwencje: przy pierwszym prawdziwym webhooku trzeba porównać ładunek z fi
 `webhook_inbound.json` i poprawić założone pola; zapis do tabel i handshake to krok 3b,
 sygnały do Temporal przyjdą z silnikiem Journey w fazie 3.
 
+### 17. Webhook w API: zapis idempotentny, kontakt z numeru, STOP jako opt-out (2026-10-21)
+
+Decyzja: `/webhooks/meta` to jedyna trasa bez logowania; `GET` obsługuje handshake, `POST` sprawdza
+podpis z surowych bajtów i zapisuje zdarzenia przed odpowiedzią 200. Statusy trafiają do
+`message_events` przez `ON CONFLICT DO NOTHING` na nowej unikalności `(wamid, type)`, wiadomości
+przychodzące do `inbound_messages` z unikalnością `wamid`; nieznany numer dostaje nowy wiersz
+w `contacts` (upsert po `phone_e164`); tekst ze słownika STOP tworzy zgodę `opted_out`. Pusty
+`META_APP_SECRET` lub `META_WEBHOOK_VERIFY_TOKEN` oznacza 503. Sygnałów do Temporal jeszcze nie ma.
+Powód: Meta ponawia każdą odpowiedź spoza 2xx, więc powtórka webhooka musi być bezpieczna;
+`inbound_messages.contact_id` nie może być puste, a sekcja 4.4 każe najpierw zapisać, dlatego
+kontakt powstaje z numeru. Lista słów opt-out to stała w kodzie, dopóki nie ma potrzeb językowych.
+Konsekwencje: status wiadomości może cofnąć się z `read` na `delivered`, gdy webhooki przyjdą
+w złej kolejności; sygnały `message_status`, `reply` i `opt_out` do workflow dojdą w fazie 3,
+w tym samym miejscu po zapisie. Testy tras używają wspólnej podróbki bazy z `tests/_fakes.py`.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
@@ -219,3 +234,5 @@ sygnały do Temporal przyjdą z silnikiem Journey w fazie 3.
   źródło prawdy.
 - Playwright w CI: Supabase na runnerze (`supabase/setup-cli` + `supabase start`) albo projekt
   testowy w chmurze; do decyzji, gdy testów e2e będzie więcej niż jeden plik.
+- Webhook: konfigurowalna, wielojęzyczna lista słów opt-out (env lub tabela); ochrona przed
+  cofaniem statusu wiadomości przy webhookach w złej kolejności (porządek sent < delivered < read).

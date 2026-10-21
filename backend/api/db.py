@@ -34,6 +34,28 @@ class Database:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"{table} row not found")
         return rows[0]
 
+    async def insert_ignore(self, table: str, row: Row, on_conflict: str) -> Row | None:
+        """ON CONFLICT DO NOTHING: the stored row, or None when a duplicate was skipped."""
+        rows = await self._rows(
+            "POST",
+            table,
+            params={"on_conflict": on_conflict},
+            json=row,
+            prefer="resolution=ignore-duplicates,return=representation",
+        )
+        return rows[0] if rows else None
+
+    async def upsert(self, table: str, row: Row, on_conflict: str) -> Row:
+        """Insert, or update the row that shares the conflict columns; returns it as stored."""
+        rows = await self._rows(
+            "POST",
+            table,
+            params={"on_conflict": on_conflict},
+            json=row,
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return rows[0]
+
     async def _rows(
         self,
         method: str,
@@ -41,10 +63,12 @@ class Database:
         *,
         params: dict[str, str] | None = None,
         json: Row | None = None,
+        prefer: str | None = None,
     ) -> list[Row]:
+        headers = {**self._headers, "Prefer": prefer} if prefer else self._headers
         try:
             response = await self._http.request(
-                method, f"{self._base}/{table}", params=params, json=json, headers=self._headers
+                method, f"{self._base}/{table}", params=params, json=json, headers=headers
             )
         except httpx.HTTPError as exc:
             raise HTTPException(

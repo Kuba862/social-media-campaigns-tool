@@ -4,7 +4,6 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from api.auth import AuthUser, current_user
@@ -18,6 +17,7 @@ from meta_client import (
     TemplateSpec,
     TemplateState,
 )
+from tests._fakes import FakeDb
 
 Row = dict[str, Any]
 
@@ -28,29 +28,6 @@ DRAFT = {
     "body": "Cześć {{1}}!",
     "example_values": ["Ala"],
 }
-
-
-class FakeDb:
-    def __init__(self) -> None:
-        self.rows: list[Row] = []
-
-    async def select(self, table: str, **filters: str) -> list[Row]:
-        wanted = filters.get("id", "eq.").removeprefix("eq.")
-        return [r for r in self.rows if not wanted or r["id"] == wanted]
-
-    async def insert(self, table: str, row: Row) -> Row:
-        if any(r["name"] == row["name"] and r["language"] == row["language"] for r in self.rows):
-            raise HTTPException(409, "duplicate key value violates unique constraint")
-        stored = {"id": f"id-{len(self.rows) + 1}", "meta_template_id": None, **row}
-        self.rows.append(stored)
-        return stored
-
-    async def update(self, table: str, row_id: str, changes: Row) -> Row:
-        for row in self.rows:
-            if row["id"] == row_id:
-                row.update(changes)
-                return row
-        raise HTTPException(404, "row not found")
 
 
 class FakeMeta:
