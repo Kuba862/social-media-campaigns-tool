@@ -80,7 +80,7 @@ export default async function SyncPage({
                     {row.schedule && row.schedule.runs > 0 && ` (${row.schedule.runs} runs)`}
                   </td>
                   <td>
-                    <code>{JSON.stringify(row.config)}</code>
+                    <code className="wrap">{JSON.stringify(row.config)}</code>
                   </td>
                   <td>
                     <div className="toolbar">
