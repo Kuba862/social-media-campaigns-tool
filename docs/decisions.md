@@ -406,6 +406,19 @@ Konsekwencje: numer wersji jest nadawany przy założeniu szkicu, więc publikac
 porządek wersji to numer, nie data. Równoległy zapis dwóch szkiców kończy się 409 z indeksu.
 `PUT` zastępuje także `layout`, więc edytor zawsze wysyła komplet pozycji.
 
+### 28. Panel journeys: lista z wersjami osadzonymi w API, strona journey, wspólny helper akcji (2026-10-21)
+
+Decyzja: `GET /journeys` osadza `journey_versions(id, version, published_at)` przez PostgREST, więc
+lista w panelu pokazuje "v2 published, draft v3" bez zapytania na wiersz. Strona `/journeys/{id}`
+czyta `GET /journeys/{id}` i pokazuje wersje z liczbą węzłów; edytor (6c) i przebiegi (6f) dojdą
+do niej jako linki. Helper `perform` przeniesiony z `app/templates/actions.ts` do `lib/actions.ts`
+i rozszerzony o cel przekierowania liczony z odpowiedzi API, żeby po utworzeniu journey panel
+przechodził na jej stronę. Playwright `journeys.spec.ts` tworzy journey i sprawdza listę.
+Powód: jedna lista = jedno zapytanie; jeden sposób obsługi błędów akcji dla wszystkich stron.
+Konsekwencje: typ `JourneyRow` ma opcjonalne `journey_versions`, bo `FakeDb` ignoruje `columns`
+i testy API nie widzą osadzenia; `describeVersions` traktuje brak pola jak brak wersji. Pełny
+zestaw e2e wymaga teraz uruchomionego Temporal albo poprawki `get_runs` (wpis 25).
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

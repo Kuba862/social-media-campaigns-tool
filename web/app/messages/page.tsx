@@ -16,7 +16,8 @@ export default async function MessagesPage() {
   return (
     <main>
       <p>
-        <Link href="/">Home</Link> | <Link href="/templates">Templates</Link>
+        <Link href="/">Home</Link> | <Link href="/templates">Templates</Link> |{" "}
+        <Link href="/journeys">Journeys</Link>
       </p>
       <h1>Messages</h1>
       {problem && <p role="alert">{problem}</p>}

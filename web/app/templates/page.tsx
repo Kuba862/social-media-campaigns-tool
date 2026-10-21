@@ -23,7 +23,8 @@ export default async function TemplatesPage({
   return (
     <main>
       <p>
-        <Link href="/">Home</Link> | <Link href="/messages">Messages</Link>
+        <Link href="/">Home</Link> | <Link href="/messages">Messages</Link> |{" "}
+        <Link href="/journeys">Journeys</Link>
       </p>
       <h1>Templates</h1>
       {message && <p role="alert">{message}</p>}

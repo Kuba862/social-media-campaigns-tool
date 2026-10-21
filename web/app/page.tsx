@@ -24,6 +24,9 @@ export default async function HomePage() {
       <p>
         <Link href="/messages">Messages</Link>
       </p>
+      <p>
+        <Link href="/journeys">Journeys</Link>
+      </p>
       <form action={logout}>
         <button type="submit">Sign out</button>
       </form>
