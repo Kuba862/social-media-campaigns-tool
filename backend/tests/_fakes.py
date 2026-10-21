@@ -2,9 +2,8 @@
 
 from typing import Any
 
-from storage.postgrest import ConflictError, NotFoundError
-
 from meta_client import CreatedTemplate, MetaError, SendResult, TemplateSpec, TemplateState
+from storage.postgrest import ConflictError, NotFoundError
 
 Row = dict[str, Any]
 
