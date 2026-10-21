@@ -1,0 +1,51 @@
+# Cloud Build: build the worker image and deploy it to a Cloud Run worker pool (docs/deploy-cloud-run.md).
+# Trigger: push to master. Non-secret settings are substitutions on the trigger; secrets stay in
+# Secret Manager and reach the container through --set-secrets.
+substitutions:
+  _REGION: europe-west1
+  _REPO: wa
+  _POOL: wa-worker
+  _TEMPORAL_ADDRESS: "" # <namespace>.<account>.tmprl.cloud:7233
+  _TEMPORAL_NAMESPACE: "" # <namespace>.<account>
+  _SUPABASE_URL: ""
+  _WA_ALLOWED_TEST_RECIPIENTS: "" # E.164 numbers separated by commas
+  _META_GRAPH_VERSION: v24.0
+  _META_WABA_ID: ""
+  _META_PHONE_NUMBER_ID: ""
+  # Secret Manager names; extend with META_SYSTEM_USER_TOKEN=meta-system-user-token:latest and
+  # SYNC_POSTGRES_DSN=sync-postgres-dsn:latest once those secrets exist.
+  _SECRETS: TEMPORAL_API_KEY=temporal-api-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:latest
+      - --file
+      - backend/Dockerfile
+      - backend
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, --all-tags, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker"]
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - worker-pools
+      - deploy
+      - ${_POOL}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+      - --region=${_REGION}
+      - --instances=1
+      # "^|^" makes "|" the separator, so a comma-separated recipient list survives.
+      - --set-env-vars=^|^TEMPORAL_ADDRESS=${_TEMPORAL_ADDRESS}|TEMPORAL_NAMESPACE=${_TEMPORAL_NAMESPACE}|SUPABASE_URL=${_SUPABASE_URL}|WA_SEND_MODE=test|WA_ALLOWED_TEST_RECIPIENTS=${_WA_ALLOWED_TEST_RECIPIENTS}|META_GRAPH_VERSION=${_META_GRAPH_VERSION}|META_WABA_ID=${_META_WABA_ID}|META_PHONE_NUMBER_ID=${_META_PHONE_NUMBER_ID}
+      - --set-secrets=${_SECRETS}
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:latest
+options:
+  logging: CLOUD_LOGGING_ONLY

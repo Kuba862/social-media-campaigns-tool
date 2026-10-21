@@ -635,6 +635,28 @@ Konsekwencje: bez Temporal Cloud trasy startu przebiegów i synchronizacji odpow
 chroniony logowaniem do Vercela, więc webhook Mety celuje w produkcję; `api/index.py` z sekcji 2
 instrukcji nie jest potrzebny, bo preset czyta wejście z `pyproject`.
 
+### 40. Worker jako Cloud Run worker pool z obrazu uv, Cloud Build z pusha, sekrety z Secret Managera (2026-10-21)
+
+Decyzja: `backend/Dockerfile` buduje obraz dwuetapowo (etap `uv` instaluje zależności
+z `uv.lock` bez grupy dev, etap końcowy to `python:3.12-slim` z użytkownikiem bez roota);
+`.dockerignore` pomija `.env`, testy i cache. `cloudbuild.yaml` w katalogu głównym buduje,
+wypycha do Artifact Registry i wdraża `gcloud run worker-pools deploy` z `--instances=1`;
+ustawienia bez sekretów są substytucjami triggera, sekrety trafiają do kontenera przez
+`--set-secrets` z Secret Managera (`temporal-api-key`, `supabase-service-role-key`, później
+`meta-system-user-token` i `sync-postgres-dsn`). Lista numerów testowych zawiera przecinki,
+więc `--set-env-vars` używa separatora `^|^`. Worker odpowiada 200 na `/healthz`, gdy dostanie
+`PORT`, więc ten sam obraz działa też jako Cloud Run *service* z `--min-instances=1
+--no-cpu-throttling` (wariant zapasowy z sekcji 1). Temporal Cloud: namespace z uwierzytelnianiem
+kluczem API, adres `<namespace>.<account>.tmprl.cloud:7233`, ten sam namespace i klucz w API
+na Vercelu i w workerze. Instrukcja klikania: `docs/deploy-cloud-run.md`.
+Powód: sekcja 1 preferuje worker pool (brak serwera HTTP, stała instancja, bez dławienia CPU);
+sekcja 8 każe trzymać sekrety workera w Secret Managerze; jeden obraz dla obu wariantów Cloud
+Run unika rozjazdu konfiguracji.
+Konsekwencje: obraz ma ok. 290 MB (temporalio z rdzeniem w Rust, psycopg); worker pool nie
+skaluje się automatycznie, jedna instancja wystarcza na PoC; obraz sprawdzony lokalnie
+w Dockerze przeciwko lokalnemu Temporal i Supabase (workflow synchronizacji wykonany przez
+kontener), samo wdrożenie w GCP wykona właściciel według instrukcji.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
