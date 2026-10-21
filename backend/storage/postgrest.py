@@ -1,10 +1,20 @@
 """Supabase REST (PostgREST) client shared by the API and the worker (decision 14, decision 20)."""
 
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 
 Row = dict[str, Any]
+
+
+class Storage(Protocol):
+    """What callers need from storage; PostgrestClient and the test double both satisfy it."""
+
+    async def select(self, table: str, columns: str = "*", **filters: str) -> list[Row]: ...
+    async def insert(self, table: str, row: Row) -> Row: ...
+    async def update(self, table: str, row_id: str, changes: Row) -> Row: ...
+    async def insert_ignore(self, table: str, row: Row, on_conflict: str) -> Row | None: ...
+    async def upsert(self, table: str, row: Row, on_conflict: str) -> Row: ...
 
 
 class StorageError(Exception):

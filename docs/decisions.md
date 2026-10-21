@@ -265,6 +265,24 @@ Konsekwencje: nowy pakiet najwyższego poziomu `storage` obok `core`, `api`, `wo
 `meta_client`, `sync`; `core` nadal niczego z niego nie importuje; podróbka bazy w testach rzuca
 te same klasy, a prawdziwy klient ma od tego kroku własne testy jednostkowe.
 
+### 21. Aktywności Journey: klasa z wstrzykiwanymi klientami, dataclassy, dwie drogi błędów (2026-10-21)
+
+Decyzja: aktywności workera są metodami `JourneyActivities`, która w konstruktorze dostaje bazę
+i Meta jako protokoły (`Storage`, `TemplateSender`), więc testy podstawiają podróbki bez Temporal.
+Wejścia i wyjścia to `dataclass`, bo domyślny konwerter Temporal serializuje je bez konfiguracji.
+`send_template` realizuje sekcję 4.3: wiersz w `messages` przez `ON CONFLICT DO NOTHING` na
+`idempotency_key` = `workflow_id:node_id:visit`, istniejący `wamid` wraca bez wołania Meta, odmowa
+Meta i strażnik numerów kończą się wynikiem `failed` dla ścieżki porażki w workflow, a błędy
+przejściowe są rzucane dalej, żeby Temporal ponowił aktywność. Brak kontaktu, szablonu albo tokenu
+Meta to `ApplicationError(non_retryable=True)`. `update_contact` scala klucze `attributes.*`
+z JSON-em atrybutów, inne klucze traktuje jako kolumny; `record_run_progress` ustawia `ended_at`
+dla statusów końcowych.
+Powód: brak globalnych klientów, czyste testy jednostkowe aktywności, a podział "wynik `failed`
+kontra wyjątek" oddaje semantykę Temporal: wyjątek znaczy "spróbuj jeszcze raz".
+Konsekwencje: ryzyko resztkowe z sekcji 4.3, awaria między odpowiedzią Meta a zapisem `wamid`,
+może dać podwójną wysyłkę po ponowieniu; status `skipped_no_consent` wymaga migracji przy
+workflow (5c); błędy bazy klasyfikuje dopiero polityka ponowień w workflow.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
