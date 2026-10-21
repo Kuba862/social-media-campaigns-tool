@@ -27,7 +27,9 @@ export default async function JourneyPage({ params }: { params: Promise<{ id: st
       {problem && <p role="alert">{problem}</p>}
       {journey && (
         <>
-          <p>Status: {journey.status}</p>
+          <p>
+            Status: {journey.status} | <Link href={`/journeys/${journey.id}/edit`}>Edit</Link>
+          </p>
           <h2>Versions</h2>
           <table>
             <thead>

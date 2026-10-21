@@ -420,6 +420,27 @@ Konsekwencje: typ `JourneyRow` ma opcjonalne `journey_versions`, bo `FakeDb` ign
 i testy API nie widzą osadzenia; `describeVersions` traktuje brak pola jak brak wersji. Pełny
 zestaw e2e wymaga teraz uruchomionego Temporal albo poprawki `get_runs` (wpis 25).
 
+### 29. Edytor: React Flow na kanwie, definicja jest źródłem prawdy, cele branch jako krawędzie (2026-10-21)
+
+Decyzja: `@xyflow/react` (wybór z sekcji 1 instrukcji) rysuje kanwę na `/journeys/{id}/edit`.
+Jedyną reprezentacją journey pozostaje definicja JSON plus `layout`; graf React Flow jest widokiem
+liczonym czystymi funkcjami `toGraph` i `fromGraph` w `web/lib/journey-graph.ts`, z testem
+round-trip na tej samej fixture co backend (`backend/tests/fixtures/journey_guide_example.json`).
+Uchwyty wyjściowe wynikają z typu węzła: jeden `next`, `replied` i `timeout` dla `wait_for_reply`,
+`cond-i` i `else` dla `branch`. Cele `branch` w definicji leżą w węźle (`conditions[i].next`,
+`else`), więc na kanwie stają się krawędziami z tych uchwytów, a `fromGraph` wpisuje je z powrotem
+do węzła i nie dodaje ich do `edges`. Jeden uchwyt prowadzi do jednego węzła: nowe połączenie
+zastępuje poprzednie. Paleta dodaje węzły z domyślnymi wartościami szkicu (`PT1H`, `PT24H`, pusty
+szablon, pusta lista warunków); konfigurację węzła da panel boczny (6d), walidację i publikację
+krok 6e. Zapis to akcja serwera `saveDraft` zwracająca wynik zamiast przekierowania, bo edytor
+zostaje na stronie. Punkt startu edytora: szkic, w jego braku kopia najnowszej opublikowanej
+wersji, w jej braku `start` i `end`.
+Powód: edytor nie może mieć własnego modelu, bo silnik czyta definicję; a cele `branch` w węźle
+(sekcja 4.1) muszą dać się rysować jak zwykłe krawędzie.
+Konsekwencje: usunięcie węzła czyści wskazania `next`/`else`, które do niego prowadziły; pozycje
+są zaokrąglane do całych pikseli; e2e `editor.spec.ts` dodaje węzeł przyciskiem i zapisuje, bez
+przeciągania krawędzi (to zostaje w 6e przez pole "następny węzeł" w panelu).
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
