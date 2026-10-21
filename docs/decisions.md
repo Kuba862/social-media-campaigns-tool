@@ -618,6 +618,23 @@ Konsekwencje: `pnpm build` pobiera czcionki z Google Fonts, więc runner CI potr
 używać konsekwentnie w kolejnych stronach; testy e2e nie zależą od stylów, tylko od ról
 i etykiet, i przeszły bez zmian.
 
+### 39. Vercel: dwa projekty z jednego repo, preset FastAPI z `pyproject`, Node 24 dla panelu (2026-10-21)
+
+Decyzja: API i panel to osobne projekty Vercel z tego samego repozytorium (Root Directory
+`backend` i `web`). API korzysta z presetu FastAPI Vercela: wejście `[tool.vercel] entrypoint =
+"api.main:app"` w `pyproject.toml`, wersja Pythona z `.python-version` (3.12), zależności
+z `uv.lock` instalowane przez `uv`, wszystkie żądania idą do jednej funkcji ASGI; preset ma
+pierwszeństwo przed wykrywaniem funkcji w katalogu `api/`, więc pakiet `api` nie rozpada się na
+osobne funkcje. `backend/vercel.json` ustawia region `fra1` (blisko Supabase w EU) i wyklucza
+testy z paczki. Panel deklaruje `engines.node >= 24`, bo Vercel buduje na Node 22 lub 24,
+a lokalnie i w CI jest 26. Instrukcja klikania z nazwami zmiennych jest w `docs/deploy-vercel.md`.
+Powód: sekcja 1 instrukcji: API jako Vercel Python Functions, panel na Vercelu; plan Hobby
+pozwala na kilka projektów, a dwa projekty rozdzielają zmienne środowiskowe i logi.
+Konsekwencje: bez Temporal Cloud trasy startu przebiegów i synchronizacji odpowiadają 503
+(zaprojektowane w 5e), bez kluczy Mety API działa w trybie szkiców; podgląd na planie Hobby jest
+chroniony logowaniem do Vercela, więc webhook Mety celuje w produkcję; `api/index.py` z sekcji 2
+instrukcji nie jest potrzebny, bo preset czyta wejście z `pyproject`.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
