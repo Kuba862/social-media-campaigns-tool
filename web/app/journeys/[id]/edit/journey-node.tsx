@@ -7,7 +7,7 @@ import { sourceHandles, type JourneyNode } from "@/lib/journey-graph";
 function summary(node: NodeDef): string {
   switch (node.type) {
     case "send_template":
-      return `template: ${node.template_id || "(none)"}`;
+      return node.template_id ? `template ${node.template_id.slice(0, 8)}…` : "no template";
     case "wait":
       return node.duration;
     case "wait_for_reply":
@@ -25,22 +25,13 @@ function summary(node: NodeDef): string {
 export function JourneyNodeView({ id, data }: NodeProps<JourneyNode>) {
   const handles = sourceHandles(data);
   return (
-    <div
-      style={{
-        border: "1px solid #333",
-        borderRadius: 6,
-        padding: "6px 10px",
-        background: "#fff",
-        minWidth: 150,
-        fontSize: 12,
-      }}
-    >
+    <div className="node">
       {data.type !== "start" && <Handle type="target" position={Position.Left} id="in" />}
       <strong>{data.type}</strong>
       <div>{id}</div>
       <div>{summary(data)}</div>
       {handles.length > 1 && (
-        <div style={{ textAlign: "right", color: "#555" }}>
+        <div className="handles">
           {handles.map((handle) => (
             <div key={handle}>{handle}</div>
           ))}

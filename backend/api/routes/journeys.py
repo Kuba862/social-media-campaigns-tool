@@ -1,10 +1,10 @@
 """Journeys: drafts, published versions, runs for contacts, listing and cancelling runs."""
 
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from api.auth import current_user
 from api.db import Database, Row
@@ -26,9 +26,18 @@ class JourneyCreate(BaseModel):
 
 
 class StartRuns(BaseModel):
+    """Contacts by id, or by E.164 phone number (the panel's way); at least one of the two."""
+
     model_config = ConfigDict(extra="forbid")
 
-    contact_ids: list[str] = Field(min_length=1, max_length=500)
+    contact_ids: list[str] = Field(default_factory=list, max_length=500)
+    phones: list[str] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def _some_target(self) -> Self:
+        if not self.contact_ids and not self.phones:
+            raise ValueError("contact_ids or phones required")
+        return self
 
 
 class Point(BaseModel):
@@ -139,9 +148,10 @@ async def start_runs(journey_id: str, body: StartRuns, db: Db, runs: Runs) -> di
     if journey["status"] != "active" or not published:
         raise HTTPException(status.HTTP_409_CONFLICT, "journey has no published version")
     latest = published[-1]
+    contact_ids, unknown = await _resolve(db, body)
     started: list[str] = []
     skipped: list[str] = []
-    for contact_id in body.contact_ids:
+    for contact_id in contact_ids:
         workflow_id = f"journey:{journey_id}:contact:{contact_id}"
         try:
             run = await db.insert(
@@ -170,7 +180,7 @@ async def start_runs(journey_id: str, body: StartRuns, db: Db, runs: Runs) -> di
             skipped.append(contact_id)
             continue
         started.append(run["id"])
-    return {"started": started, "skipped": skipped}
+    return {"started": started, "skipped": skipped, "unknown": unknown}
 
 
 @router.get("/{journey_id}/runs")
@@ -196,6 +206,22 @@ async def cancel_run(run_id: str, db: Db, runs: Runs) -> Row:
         raise HTTPException(status.HTTP_409_CONFLICT, f"run is {row['status']}, not running")
     await runs.cancel(row["workflow_id"])
     return await db.update("journey_runs", run_id, {"status": "cancelled", "ended_at": _now()})
+
+
+async def _resolve(db: Database, body: StartRuns) -> tuple[list[str], list[str]]:
+    """Contact ids to start, and the phone numbers no contact has."""
+    contact_ids = list(body.contact_ids)
+    unknown: list[str] = []
+    if body.phones:
+        quoted = ",".join(f'"{phone}"' for phone in body.phones)
+        found = await db.select("contacts", phone_e164=f"in.({quoted})")
+        by_phone = {row["phone_e164"]: row["id"] for row in found}
+        for phone in body.phones:
+            if phone in by_phone:
+                contact_ids.append(by_phone[phone])
+            else:
+                unknown.append(phone)
+    return contact_ids, unknown
 
 
 async def _check(db: Database, definition: dict[str, Any]) -> None:

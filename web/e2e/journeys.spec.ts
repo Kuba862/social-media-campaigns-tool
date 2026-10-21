@@ -9,7 +9,7 @@ test.beforeAll(async ({ playwright }) => {
 
 test("a new journey opens its page and is listed without versions", async ({ page }) => {
   await signIn(page);
-  await page.getByRole("link", { name: "Journeys" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Journeys" }).click();
   await expect(page.getByRole("heading", { name: "Journeys" })).toBeVisible();
 
   const name = `e2e journey ${Date.now()}`;
@@ -18,7 +18,7 @@ test("a new journey opens its page and is listed without versions", async ({ pag
   await expect(page.getByRole("heading", { name })).toBeVisible(); // redirected to the journey
   await expect(page.getByText("No versions yet.")).toBeVisible();
 
-  await page.getByRole("link", { name: "Journeys" }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Journeys" }).click();
   const row = page.getByRole("row").filter({ hasText: name });
   await expect(row).toContainText("draft");
   await expect(row).toContainText("no versions");

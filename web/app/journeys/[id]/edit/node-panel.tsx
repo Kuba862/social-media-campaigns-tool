@@ -55,9 +55,9 @@ export function NodePanel({
 }: Shared & { node: JourneyNode; templates: TemplateOption[]; onDelete: (id: string) => void }) {
   const data = node.data;
   return (
-    <aside style={{ width: 320, fontSize: 14 }}>
+    <aside className="panel">
       <h2>{data.type}</h2>
-      <p>id: {node.id}</p>
+      <p className="muted">id: {node.id}</p>
       {data.type === "start" && <StartForm node={data} {...shared} />}
       {data.type === "send_template" && (
         <SendTemplateForm node={data} templates={templates} {...shared} />
@@ -68,7 +68,7 @@ export function NodePanel({
       {data.type === "update_contact" && <UpdateContactForm node={data} {...shared} />}
       {data.type === "end" && <p>The journey ends here.</p>}
       <p>
-        <button type="button" onClick={() => onDelete(node.id)}>
+        <button type="button" onClick={() => onDelete(node.id)} className="danger">
           Delete node
         </button>
       </p>
@@ -88,7 +88,7 @@ function TargetSelect<T extends FieldValues>({
   options: string[];
 }) {
   return (
-    <label style={{ display: "block" }}>
+    <label>
       {label}
       <select {...register(name)}>
         <option value="">(not connected)</option>
@@ -171,7 +171,7 @@ function SendTemplateForm({
   }, [templateId, templates, form, replace]);
   return (
     <form onSubmit={form.handleSubmit((values) => onApply(sendTemplateApply(node, values)))}>
-      <label style={{ display: "block" }}>
+      <label>
         Template
         <select {...form.register("template_id")}>
           <option value="">(choose an approved template)</option>
@@ -186,7 +186,7 @@ function SendTemplateForm({
         <p role="alert">{form.formState.errors.template_id.message}</p>
       )}
       {fields.map((field, index) => (
-        <label key={field.id} style={{ display: "block" }}>
+        <label key={field.id}>
           {`{{${index + 1}}}`} from
           <input {...form.register(`variables.${index}.path`)} placeholder="contact.first_name" />
           {form.formState.errors.variables?.[index]?.path && <span role="alert"> required</span>}
@@ -255,7 +255,7 @@ function BranchForm({ node, targets, options, onApply }: FormProps<"branch">) {
       {fields.map((field, index) => (
         <fieldset key={field.id}>
           <legend>Condition {index + 1}</legend>
-          <label style={{ display: "block" }}>
+          <label>
             Path
             <input
               {...form.register(`conditions.${index}.path`)}
@@ -263,7 +263,7 @@ function BranchForm({ node, targets, options, onApply }: FormProps<"branch">) {
             />
             {form.formState.errors.conditions?.[index]?.path && <span role="alert"> required</span>}
           </label>
-          <label style={{ display: "block" }}>
+          <label>
             Equals
             <input {...form.register(`conditions.${index}.value`)} placeholder="YES" />
           </label>

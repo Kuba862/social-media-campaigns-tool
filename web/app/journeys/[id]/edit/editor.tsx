@@ -111,7 +111,7 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
   function add(type: NodeType) {
     setNodes((current) => {
       const id = nextId(current, type);
-      const x = current.length === 0 ? 0 : Math.max(...current.map((n) => n.position.x)) + 220;
+      const x = current.length === 0 ? 0 : Math.max(...current.map((n) => n.position.x)) + 240;
       return [...current, { id, type: "journey", position: { x, y: 0 }, data: newNode(type, id) }];
     });
   }
@@ -145,31 +145,33 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
     .map((node) => node.id);
   return (
     <>
-      <p>
+      <div className="toolbar">
         {NODE_TYPES.map((type) => (
           <button
             key={type}
             type="button"
             onClick={() => add(type)}
             disabled={type === "start" && hasStart}
+            className="secondary"
           >
             Add {type}
           </button>
-        ))}{" "}
+        ))}
+        <span className="spacer" style={{ flex: 1 }} />
         <button type="button" onClick={save} disabled={saving}>
           Save draft
-        </button>{" "}
+        </button>
         <button type="button" onClick={publish} disabled={saving || problems.length > 0}>
           Publish
         </button>
-      </p>
+      </div>
       <p role="status">
         {result === null ? "" : result.ok ? `Draft v${result.version} saved` : result.error}
       </p>
       {problems.length === 0 ? (
-        <p>Ready to publish.</p>
+        <p className="muted">Ready to publish.</p>
       ) : (
-        <ul aria-label="Problems">
+        <ul aria-label="Problems" className="problems">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}
@@ -182,8 +184,8 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
           ))}
         </ul>
       )}
-      <div style={{ display: "flex", gap: 16 }}>
-        <div style={{ flex: 1, height: "70vh", border: "1px solid #ccc" }}>
+      <div className="editor">
+        <div className="canvas">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -210,12 +212,12 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
             onDelete={remove}
           />
         ) : (
-          <aside style={{ width: 320, fontSize: 14 }}>
-            <p>Click a node to configure it and choose where it leads.</p>
+          <aside className="panel">
+            <p className="muted">Click a node to configure it and choose where it leads.</p>
           </aside>
         )}
       </div>
-      <p>
+      <p className="muted">
         Connect nodes in the side panel or by dragging from a right handle to a left handle; select
         a node or edge and press Delete to remove it.
       </p>
