@@ -4,6 +4,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from meta_client import CreatedTemplate, MetaError, SendResult, TemplateSpec, TemplateState
+
 Row = dict[str, Any]
 
 
@@ -17,7 +19,7 @@ class FakeDb:
     def rows(self, table: str) -> list[Row]:
         return self.tables.setdefault(table, [])
 
-    async def select(self, table: str, **filters: str) -> list[Row]:
+    async def select(self, table: str, columns: str = "*", **filters: str) -> list[Row]:
         wanted = {key: value.removeprefix("eq.") for key, value in filters.items()}
         return [r for r in self.rows(table) if all(str(r.get(k)) == v for k, v in wanted.items())]
 
@@ -59,3 +61,31 @@ class FakeDb:
         stored = {"id": f"{table}-{self._next_id}", "meta_template_id": None, **row}
         self.rows(table).append(stored)
         return stored
+
+
+class FakeMeta:
+    """Stand-in for meta_client.MetaClient with canned answers and switchable failures."""
+
+    def __init__(self) -> None:
+        self.create_error: MetaError | None = None
+        self.send_error: MetaError | None = None
+        self.state: TemplateState | None = TemplateState(meta_template_id="m-1", status="APPROVED")
+        self.created: list[TemplateSpec] = []
+        self.sent: list[tuple[str, str, str, list[str]]] = []
+
+    async def create_template(self, spec: TemplateSpec) -> CreatedTemplate:
+        if self.create_error is not None:
+            raise self.create_error
+        self.created.append(spec)
+        return CreatedTemplate(meta_template_id="m-1", status="PENDING")
+
+    async def get_template_state(self, name: str, language: str) -> TemplateState | None:
+        return self.state
+
+    async def send_template(
+        self, to_e164: str, template_name: str, language: str, body_values: list[str]
+    ) -> SendResult:
+        if self.send_error is not None:
+            raise self.send_error
+        self.sent.append((to_e164, template_name, language, body_values))
+        return SendResult(wamid=f"wamid.T{len(self.sent)}", status="accepted")

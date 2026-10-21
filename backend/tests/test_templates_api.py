@@ -10,14 +10,11 @@ from api.auth import AuthUser, current_user
 from api.deps import get_db, get_meta
 from api.main import app
 from meta_client import (
-    CreatedTemplate,
-    MetaError,
     MetaPermanentError,
     MetaTransientError,
-    TemplateSpec,
     TemplateState,
 )
-from tests._fakes import FakeDb
+from tests._fakes import FakeDb, FakeMeta
 
 Row = dict[str, Any]
 
@@ -28,22 +25,6 @@ DRAFT = {
     "body": "Cześć {{1}}!",
     "example_values": ["Ala"],
 }
-
-
-class FakeMeta:
-    def __init__(self) -> None:
-        self.create_error: MetaError | None = None
-        self.state: TemplateState | None = TemplateState(meta_template_id="m-1", status="APPROVED")
-        self.created: list[TemplateSpec] = []
-
-    async def create_template(self, spec: TemplateSpec) -> CreatedTemplate:
-        if self.create_error is not None:
-            raise self.create_error
-        self.created.append(spec)
-        return CreatedTemplate(meta_template_id="m-1", status="PENDING")
-
-    async def get_template_state(self, name: str, language: str) -> TemplateState | None:
-        return self.state
 
 
 @pytest.fixture

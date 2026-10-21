@@ -3,6 +3,8 @@
 import os
 from dataclasses import dataclass
 
+from core.sending import parse_allowlist
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -15,9 +17,15 @@ class Settings:
     meta_system_user_token: str  # empty: Meta calls answer 503, drafts still work
     meta_app_secret: str
     meta_webhook_verify_token: str
+    wa_send_mode: str  # "test" or "live"; the PoC never sets live
+    wa_allowed_test_recipients: frozenset[str]
 
 
 def load_settings() -> Settings:
+    send_mode = os.environ.get("WA_SEND_MODE", "test")
+    if send_mode not in ("test", "live"):
+        raise RuntimeError("WA_SEND_MODE must be test or live")
+
     return Settings(
         supabase_url=_require("SUPABASE_URL").rstrip("/"),
         supabase_service_role_key=_require("SUPABASE_SERVICE_ROLE_KEY"),
@@ -28,6 +36,10 @@ def load_settings() -> Settings:
         meta_system_user_token=os.environ.get("META_SYSTEM_USER_TOKEN", ""),
         meta_app_secret=os.environ.get("META_APP_SECRET", ""),
         meta_webhook_verify_token=os.environ.get("META_WEBHOOK_VERIFY_TOKEN", ""),
+        wa_send_mode=send_mode,
+        wa_allowed_test_recipients=parse_allowlist(
+            os.environ.get("WA_ALLOWED_TEST_RECIPIENTS", "")
+        ),
     )
 
 
