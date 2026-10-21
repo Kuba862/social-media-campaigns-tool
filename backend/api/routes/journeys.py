@@ -61,7 +61,8 @@ def _now() -> str:
 
 @router.get("")
 async def list_journeys(db: Db) -> list[Row]:
-    return await db.select("journeys")
+    """Each journey with its version numbers and publish dates embedded, for the panel's list."""
+    return await db.select("journeys", columns="*,journey_versions(id,version,published_at)")
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
