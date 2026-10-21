@@ -426,6 +426,13 @@ button:disabled {
   cursor: not-allowed;
   transform: none;
 }
+a.button:hover {
+  text-decoration: none;
+  color: var(--on-accent);
+}
+a.button.secondary:hover {
+  color: var(--text);
+}
 .secondary,
 td button,
 .panel button[type="button"],
