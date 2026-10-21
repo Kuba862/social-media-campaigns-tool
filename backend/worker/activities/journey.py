@@ -13,7 +13,9 @@ from core.sending import recipient_allowed
 from meta_client import MetaPermanentError, SendResult
 from storage.postgrest import Row, Storage
 
-TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "cancelled", "skipped_no_consent"})
+TERMINAL_RUN_STATUSES = frozenset(
+    {"completed", "failed", "cancelled", "skipped_no_consent", "opted_out"}
+)
 
 
 @dataclass(frozen=True)

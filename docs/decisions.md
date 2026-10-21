@@ -300,6 +300,21 @@ Konsekwencje: porażka wysyłki w środku journey nie ma ścieżki alternatywnej
 porażki w edytorze, "Later"); polityka ponowień `send_template` to 5 prób od 2 s; testy workflow
 działają na serwerze testowym z przeskakiwaniem czasu, więc `wait` liczony w dniach trwa milisekundy.
 
+### 23. Sygnały w `JourneyWorkflow`: odpowiedź oczekująca, opt-out przerywa czekanie (2026-10-21)
+
+Decyzja: workflow przyjmuje trzy sygnały z sekcji 4.2. `inbound_message` niesie `ReplySignal`
+(`wamid`, `text`, `button_payload`, `context_wamid`); odpowiedź leży jako oczekująca do najbliższego
+`wait_for_reply`, a nowsza nadpisuje niezużytą. `opt_out` ustawia flagę sprawdzaną na początku
+każdego węzła oraz przerywa `wait` i `wait_for_reply`, bo oba czekają przez `wait_condition`
+z limitem zamiast `sleep`; przebieg kończy się statusem `opted_out` (migracja). `message_status`
+jest tylko zapamiętywany, w ograniczonej liczbie, dla przyszłych węzłów. `wait_for_reply` wychodzi
+portem `replied` z kontekstem `reply.*` albo `timeout` bez niego.
+Powód: odpowiedź, która przyjdzie przed dojściem do `wait_for_reply`, nie powinna ginąć; opt-out
+w sekcji 4.2 ma kończyć przebieg natychmiast, a `workflow.sleep` nie da się przerwać sygnałem.
+Konsekwencje: odpowiedź z wcześniejszej, niepowiązanej wiadomości też zostanie zużyta, jeśli
+webhook ją skieruje do tego przebiegu; dopasowanie po `context_wamid` należy do webhooka (5e).
+Testy używają `env.sleep` do przesuwania zegara i `start_signal` dla sygnałów sprzed startu.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
