@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["fra1"],
+  "functions": {
+    "api/main.py": {
+      "excludeFiles": "{tests/**,**/__pycache__/**,sync/connectors/postgres_demo.sql}"
+    }
+  }
+}
