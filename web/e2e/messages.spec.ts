@@ -1,31 +1,5 @@
-import { createHmac } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { ensureTestUser, signIn } from "./helpers";
-
-const WEBHOOK_SECRET = "e2e-webhook-secret"; // META_APP_SECRET in backend/.env
-
-function approvalWebhook(name: string): string {
-  return JSON.stringify({
-    object: "whatsapp_business_account",
-    entry: [
-      {
-        id: "WABA1",
-        changes: [
-          {
-            field: "message_template_status_update",
-            value: {
-              event: "APPROVED",
-              message_template_id: 123,
-              message_template_name: name,
-              message_template_language: "pl",
-              reason: "NONE",
-            },
-          },
-        ],
-      },
-    ],
-  });
-}
+import { approveTemplate, ensureTestUser, signIn } from "./helpers";
 
 test.beforeAll(async ({ playwright }) => {
   const api = await playwright.request.newContext();
@@ -48,14 +22,8 @@ test("approved template offers a test send and the log page renders", async ({
   await expect(row).toContainText("DRAFT");
   await expect(row.getByRole("button", { name: "Send test" })).toHaveCount(0);
 
-  const body = approvalWebhook(name);
-  const signature = createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex");
   const api = await playwright.request.newContext();
-  const hook = await api.post(`${process.env.API_URL}/webhooks/meta`, {
-    headers: { "Content-Type": "application/json", "X-Hub-Signature-256": `sha256=${signature}` },
-    data: body,
-  });
-  expect(hook.status()).toBe(200);
+  await approveTemplate(api, name);
   await api.dispose();
 
   await page.reload();

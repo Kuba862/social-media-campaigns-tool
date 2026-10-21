@@ -85,7 +85,10 @@ export default async function EditJourneyPage({ params }: { params: Promise<{ id
       {problem && <p role="alert">{problem}</p>}
       {start && (
         <>
-          <p>Editing {start.label}. Save creates or overwrites the draft; publish comes later.</p>
+          <p>
+            Editing {start.label}. Save draft keeps your work; Publish checks it and makes it the
+            next version.
+          </p>
           <Editor
             journeyId={id}
             definition={start.definition}
