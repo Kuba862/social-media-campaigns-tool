@@ -116,9 +116,8 @@ class TemporalJourneyRuns:
                 return None
             raise
         upcoming = description.info.next_action_times
-        return {
+        return {  # the cron itself lives in the row; Temporal stores it as a calendar spec
             "paused": description.schedule.state.paused,
-            "cron": list(description.schedule.spec.cron_expressions),
             "next_run_at": upcoming[0].isoformat() if upcoming else None,
             "runs": description.info.num_actions,
         }
