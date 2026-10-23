@@ -27,8 +27,15 @@ kryterium 1 z briefu: szablon utworzony w panelu trafia do Meta, a jego status w
 
 ## 1. Czego potrzebujesz w Meta
 
-1. **Business Portfolio** (business.facebook.com) z kontem **WABA** i numerem, który działa
-   w WhatsApp. Dla samego zgłaszania szablonów weryfikacja firmy nie jest potrzebna; jest
+1. **Business Portfolio** (business.facebook.com) z kontem **WABA** platformy Cloud API.
+   Uwaga: konto powstałe przez połączenie aplikacji WhatsApp Business z telefonu z portfolio
+   (albo przez skrzynkę WhatsApp w Business Suite) nie jest kontem API. Meta odpowiada wtedy
+   kodem 100, podkodem 2388339 „WhatsApp accounts cannot be used with this API”. Na PoC użyj
+   **testowego WABA** z App Dashboard → WhatsApp → API Setup: Meta tworzy je razem z numerem
+   testowym, bez opłat, z wysyłką do maksymalnie 5 zweryfikowanych odbiorców (zakładka „To”).
+   Prawdziwy numer, który dziś działa w aplikacji na telefonie, można później przenieść na
+   Cloud API (migracja numeru), ale to osobna decyzja, bo bez trybu „coexistence” numer znika
+   z aplikacji. Dla samego zgłaszania szablonów weryfikacja firmy nie jest potrzebna; jest
    potrzebna przed wysyłką na większą skalę. Dla wysyłki z prawdziwego numeru WABA musi mieć
    **metodę płatności** (Business settings → WhatsApp accounts → Payment methods).
 2. **Aplikacja Meta** typu Business z produktem WhatsApp, przypięta do tego samego portfolio:
@@ -126,6 +133,11 @@ Sync z konfiguracją `{"table": "legacy.contacts", "default_region": "PL", "colu
   lub brak redeployu po ich dodaniu.
 - Meta nie weryfikuje webhooka: inny verify token w Meta i w Vercelu.
 - Submit → „Meta is not configured”: brak `META_SYSTEM_USER_TOKEN` (albo brak redeployu).
+- Submit → `Invalid parameter`, podkod 2388339 „WhatsApp accounts cannot be used with this API”:
+  `META_WABA_ID` wskazuje konto z aplikacji WhatsApp Business (telefon), nie konto Cloud API;
+  użyj testowego WABA z API Setup albo zmigruj numer (sekcja 1).
+- Submit → `Unsupported post request. Object with ID … does not exist`: `META_WABA_ID` to id
+  portfolio albo aplikacji, nie WABA; albo System User nie ma przypisanego konta WhatsApp.
 - Submit → błąd 190 / „Invalid OAuth access token”: token wygasł (tymczasowy) albo System User
   nie ma przypisanej aplikacji i WABA.
 - Submit → błąd 100 z opisem pola: nazwa z wielkimi literami, zmienna na początku lub końcu
