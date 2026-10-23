@@ -87,6 +87,11 @@ def _error_from(response: httpx.Response) -> MetaError:
         error = {}
     code = error.get("code")
     message = f"Meta {response.status_code}: {error.get('message') or response.text[:200]}"
+    # Code 100 ("Invalid parameter") says nothing by itself; the reason sits in these two fields.
+    details_text = (error.get("error_data") or {}).get("details")
+    reasons = [str(r) for r in (error.get("error_user_msg"), details_text) if r]
+    if reasons:
+        message = f"{message} ({'; '.join(reasons)})"
     details: dict[str, Any] = {
         "http_status": response.status_code,
         "code": code,
