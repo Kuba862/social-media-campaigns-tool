@@ -127,6 +127,38 @@ konektor `postgres`: tabela źródłowa jak w `backend/sync/connectors/postgres_
 w sekrecie `sync-postgres-dsn` (dopisany do `_SECRETS`), konektor zarejestrowany na stronie
 Sync z konfiguracją `{"table": "legacy.contacts", "default_region": "PL", "columns": {"external_ref": "id", "locale": null}}`.
 
+## 7. Migracja prawdziwego numeru z aplikacji WhatsApp Business na Cloud API
+
+Nieodwracalne bez kosztu: czaty, grupy i profil z aplikacji przepadają dla tego numeru (zrób
+kopię zapasową w aplikacji), numer przestaje działać w telefonie (bez trybu „coexistence”),
+a PIN weryfikacji dwuetapowej z rejestracji trzeba zachować. Nadawca i odbiorca testów muszą
+być różnymi numerami.
+
+1. **WABA zdatne do API.** Konto powstałe z aplikacji (podkod 2388339) nie nadaje się; utwórz
+   nowe w WhatsApp Manager (Business settings → Accounts → WhatsApp accounts → Add) albo przez
+   wizard w App Dashboard → WhatsApp → API Setup. Zapisz nowy WhatsApp Business Account ID.
+2. **Uwolnij numer**: w aplikacji WhatsApp Business Ustawienia → Konto → Usuń moje konto;
+   odczekaj kilka minut.
+3. **Dodaj numer do WABA**: API Setup → Add phone number (lub WhatsApp Manager → Phone
+   numbers → Add): dane firmy, nazwa wyświetlana zgodna z zasadami Meta, kategoria, numer i kod
+   z SMS-a lub połączenia. Zapisz Phone number ID.
+4. **Zarejestruj numer** (PIN sześciocyfrowy; jeśli numer miał PIN dwuetapowy w aplikacji,
+   użyj tego samego): `POST /<PHONE_NUMBER_ID>/register` z ciałem
+   `{"messaging_product":"whatsapp","pin":"<PIN>"}` i tokenem w nagłówku → `{"success":true}`.
+   Kontrola: `GET /<PHONE_NUMBER_ID>?fields=display_phone_number,verified_name,code_verification_status`.
+5. **System User i webhooki**: Assign assets → WhatsApp accounts → nowe WABA → Full control;
+   `POST /<WABA_ID>/subscribed_apps`, a `GET` na ten sam adres ma pokazać aplikację. Adres
+   webhooka w aplikacji nie zmienia się.
+6. **Płatność i weryfikacja** (równolegle): WhatsApp Manager → Payment settings → karta (bez
+   niej szablony inicjowane przez firmę nie wyjdą); Security Centre → Business verification (bez
+   niej limit ok. 250 odbiorców na dobę i brak nazwy wyświetlanej, co na PoC wystarcza).
+7. **Konfiguracja**: sekcje 2 i 5 tego runbooka z nowymi `META_WABA_ID`
+   i `META_PHONE_NUMBER_ID`; `WA_ALLOWED_TEST_RECIPIENTS` to numer odbiorcy, nie nadawcy.
+   Szablony należą do konta WABA, więc zgłoś je ponownie w panelu.
+
+Powrót do aplikacji: `POST /<PHONE_NUMBER_ID>/deregister`, potem rejestracja numeru w aplikacji
+na telefonie; historia z okresu API nie wraca do aplikacji.
+
 ## Rozwiązywanie problemów
 
 - `GET /webhooks/meta` → 503: brak `META_APP_SECRET` albo `META_WEBHOOK_VERIFY_TOKEN` w Vercelu
