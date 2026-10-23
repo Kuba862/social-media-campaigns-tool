@@ -75,6 +75,8 @@ i w Supabase; nigdy do repo ani do czatu.
 
 ## 4. Co dalej
 
+- **Konto Meta**: pełne kroki (identyfikatory, token, webhook, pierwszy test szablonu) są
+  w `docs/meta-setup.md`.
 - **Webhook Mety**: w aplikacji Meta → WhatsApp → Configuration → Callback URL
   `https://<projekt-api>.vercel.app/webhooks/meta`, Verify token = wartość
   `META_WEBHOOK_VERIFY_TOKEN` z projektu API; subskrypcje `messages`
