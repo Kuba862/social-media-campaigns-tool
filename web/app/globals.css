@@ -324,9 +324,11 @@ tr.expandable {
 tr.expandable:hover td {
   background: var(--surface-2);
 }
-tr.expandable:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
+.disclosure {
+  padding: 0 6px;
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 tr.detail td {
   background: var(--surface-2);

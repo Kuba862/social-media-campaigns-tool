@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Status } from "@/components/status";
 import { eventLabels, messageLabel, metaJson, type MessageRow } from "@/lib/messages";
 
-/** The log's rows; a click (or Enter) on a row opens Meta's raw JSON under it. */
+/** The log's rows; a click on a row (or its disclosure button) opens Meta's raw JSON under it. */
 export function MessageRows({ rows }: { rows: MessageRow[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const toggle = (id: string) => setOpen((current) => (current === id ? null : id));
@@ -13,21 +13,22 @@ export function MessageRows({ rows }: { rows: MessageRow[] }) {
       {rows.map((row) => {
         const expanded = open === row.id;
         return [
-          <tr
-            key={row.id}
-            className="expandable"
-            role="button"
-            tabIndex={0}
-            aria-expanded={expanded}
-            onClick={() => toggle(row.id)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                toggle(row.id);
-              }
-            }}
-          >
-            <td>{row.created_at.slice(0, 19).replace("T", " ")}</td>
+          <tr key={row.id} className="expandable" onClick={() => toggle(row.id)}>
+            <td>
+              <button
+                type="button"
+                className="disclosure"
+                aria-expanded={expanded}
+                aria-label={expanded ? "Hide Meta JSON" : "Show Meta JSON"}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggle(row.id);
+                }}
+              >
+                {expanded ? "▾" : "▸"}
+              </button>{" "}
+              {row.created_at.slice(0, 19).replace("T", " ")}
+            </td>
             <td>{messageLabel(row)}</td>
             <td>{row.contacts?.phone_e164 ?? "-"}</td>
             <td>
