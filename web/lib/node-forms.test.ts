@@ -6,6 +6,8 @@ import {
   placeholderCount,
   sendTemplateApply,
   sendTemplateDefaults,
+  sendTextApply,
+  sendTextDefaults,
   toIso,
   updateContactApply,
   variableRows,
@@ -108,5 +110,36 @@ describe("other nodes", () => {
       type: "update_contact",
       set: { "attributes.interested": "yes" },
     });
+  });
+});
+
+describe("send_text", () => {
+  const node = {
+    id: "send_text_1",
+    type: "send_text" as const,
+    text: "Hej",
+    if_closed: "skip" as const,
+  };
+
+  it("reads the text, the window policy and the next handle", () => {
+    expect(sendTextDefaults(node, { next: "end" })).toEqual({
+      text: "Hej",
+      if_closed: "skip",
+      next: "end",
+    });
+  });
+
+  it("writes them back", () => {
+    const applied = sendTextApply(node, {
+      text: "Cześć {{contact.first_name}}",
+      if_closed: "fail",
+      next: "wait_1",
+    });
+    expect(applied.node).toEqual({
+      ...node,
+      text: "Cześć {{contact.first_name}}",
+      if_closed: "fail",
+    });
+    expect(applied.targets).toEqual({ next: "wait_1" });
   });
 });

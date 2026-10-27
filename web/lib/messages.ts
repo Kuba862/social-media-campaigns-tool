@@ -7,6 +7,8 @@ export type MessageRow = {
   wamid: string | null;
   error: { message?: string; code?: number } | null;
   created_at: string;
+  kind: "template" | "text";
+  text: string | null;
   templates: { name: string; language: string } | null;
   contacts: { phone_e164: string } | null;
   message_events: MessageEvent[];
@@ -32,4 +34,13 @@ export function eventLabels(events: MessageEvent[]): string[] {
   return [...events]
     .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
     .map((event) => `${event.type} ${event.occurred_at.slice(11, 19)}`);
+}
+
+/** What the log shows in its "Message" column: the template, or the start of a service text. */
+export function messageLabel(row: Pick<MessageRow, "kind" | "text" | "templates">): string {
+  if (row.kind === "text") {
+    const text = row.text ?? "";
+    return `text: ${text.slice(0, 40)}${text.length > 40 ? "…" : ""}`;
+  }
+  return row.templates ? `${row.templates.name} (${row.templates.language})` : "-";
 }

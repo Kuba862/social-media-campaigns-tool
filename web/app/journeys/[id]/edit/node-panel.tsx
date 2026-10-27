@@ -19,6 +19,9 @@ import {
   sendTemplateApply,
   sendTemplateDefaults,
   sendTemplateSchema,
+  sendTextApply,
+  sendTextDefaults,
+  sendTextSchema,
   startApply,
   startDefaults,
   startSchema,
@@ -36,6 +39,7 @@ import {
   type Applied,
   type BranchValues,
   type SendTemplateValues,
+  type SendTextValues,
   type StartValues,
   type Targets,
   type TemplateOption,
@@ -62,6 +66,7 @@ export function NodePanel({
       {data.type === "send_template" && (
         <SendTemplateForm node={data} templates={templates} {...shared} />
       )}
+      {data.type === "send_text" && <SendTextForm node={data} {...shared} />}
       {data.type === "wait" && <WaitForm node={data} {...shared} />}
       {data.type === "wait_for_reply" && <WaitForReplyForm node={data} {...shared} />}
       {data.type === "branch" && <BranchForm node={data} {...shared} />}
@@ -192,6 +197,35 @@ function SendTemplateForm({
           {form.formState.errors.variables?.[index]?.path && <span role="alert"> required</span>}
         </label>
       ))}
+      <TargetSelect label="Next node" name="next" register={form.register} options={options} />
+      <button type="submit">Apply</button>
+    </form>
+  );
+}
+
+function SendTextForm({ node, targets, options, onApply }: FormProps<"send_text">) {
+  const form = useForm<SendTextValues>({
+    resolver: zodResolver(sendTextSchema),
+    defaultValues: sendTextDefaults(node, targets),
+  });
+  return (
+    <form onSubmit={form.handleSubmit((values) => onApply(sendTextApply(node, values)))}>
+      <label>
+        Text
+        <textarea {...form.register("text")} rows={4} placeholder="Cześć {{contact.first_name}}!" />
+      </label>
+      {form.formState.errors.text && <p role="alert">{form.formState.errors.text.message}</p>}
+      <p className="muted">
+        A service message: free only within 24 hours of the contact&apos;s last message.
+        Placeholders like {"{{contact.first_name}}"} are filled from the contact.
+      </p>
+      <label>
+        If the 24-hour window is closed
+        <select {...form.register("if_closed")}>
+          <option value="skip">skip this message and go on</option>
+          <option value="fail">end the run as failed</option>
+        </select>
+      </label>
       <TargetSelect label="Next node" name="next" register={form.register} options={options} />
       <button type="submit">Apply</button>
     </form>
