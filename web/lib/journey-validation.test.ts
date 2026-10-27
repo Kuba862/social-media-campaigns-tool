@@ -158,6 +158,6 @@ describe("problemsOf", () => {
       definition([start(), text, end()], [edge("start", "t"), edge("t", "end")]),
       APPROVED,
     );
-    expect(problems).toEqual(["t: write the text"]);
+    expect(problems).toEqual(["t: write the text or pick a saved service message"]);
   });
 });

@@ -9,8 +9,8 @@ import {
   type Layout,
 } from "@/lib/journey-definition";
 import type { JourneyDetail } from "@/lib/journeys";
-import { placeholderCount, type TemplateOption } from "@/lib/node-forms";
-import type { TemplateRow } from "@/lib/templates";
+import { placeholderCount, type ServiceOption, type TemplateOption } from "@/lib/node-forms";
+import { isService, type TemplateRow } from "@/lib/templates";
 import { Editor } from "./editor";
 
 /** The draft when there is one, else a copy of the latest published version, else start and end. */
@@ -38,38 +38,52 @@ function startingPoint(journey: JourneyDetail): {
  */
 function templateOptions(rows: TemplateRow[]): TemplateOption[] {
   return rows
-    .filter((row) => row.status === "APPROVED")
+    .filter((row) => row.status === "APPROVED" && !isService(row))
     .map((row) => {
-      const body: unknown =
-        row.components && !Array.isArray(row.components) ? row.components.body : "";
+      const components = row.components && !Array.isArray(row.components) ? row.components : null;
+      const body = typeof components?.body === "string" ? components.body : "";
+      const named = Array.isArray(components?.variables) ? components.variables : null;
+      const count = named ? named.length : placeholderCount(body);
       return {
         id: row.id,
         name: row.name,
         language: row.language,
-        placeholders: placeholderCount(typeof body === "string" ? body : ""),
+        placeholders: count,
+        variables: named ?? Array.from({ length: count }, (_, i) => String(i + 1)),
       };
     });
 }
 
-async function loadJourney(
-  id: string,
-): Promise<{ journey: JourneyDetail | null; templates: TemplateOption[]; problem: string | null }> {
+/** Saved service messages a send_text node may send. */
+function serviceOptions(rows: TemplateRow[]): ServiceOption[] {
+  return rows
+    .filter((row) => isService(row))
+    .map((row) => ({ id: row.id, name: row.name, language: row.language }));
+}
+
+async function loadJourney(id: string): Promise<{
+  journey: JourneyDetail | null;
+  templates: TemplateOption[];
+  services: ServiceOption[];
+  problem: string | null;
+}> {
   try {
     const [journey, rows] = await Promise.all([
       apiFetch<JourneyDetail>(`/journeys/${id}`),
       apiFetch<TemplateRow[]>("/templates"),
     ]);
-    return { journey, templates: templateOptions(rows), problem: null };
+    const options = { templates: templateOptions(rows), services: serviceOptions(rows) };
+    return { journey, ...options, problem: null };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     const problem = error instanceof ApiError ? error.message : "API is not reachable";
-    return { journey: null, templates: [], problem };
+    return { journey: null, templates: [], services: [], problem };
   }
 }
 
 export default async function EditJourneyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { journey, templates, problem } = await loadJourney(id);
+  const { journey, templates, services, problem } = await loadJourney(id);
   const start = journey ? startingPoint(journey) : null;
   return (
     <>
@@ -94,6 +108,7 @@ export default async function EditJourneyPage({ params }: { params: Promise<{ id
               definition={start.definition}
               layout={start.layout}
               templates={templates}
+              services={services}
             />
           </>
         )}

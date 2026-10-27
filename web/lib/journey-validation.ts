@@ -133,8 +133,8 @@ export function unfinished(defn: Definition): string[] {
     if (node.type === "send_template" && node.template_id === "") {
       problems.push(`${node.id}: choose a template`);
     }
-    if (node.type === "send_text" && node.text.trim() === "") {
-      problems.push(`${node.id}: write the text`);
+    if (node.type === "send_text" && node.text.trim() === "" && !node.message_id) {
+      problems.push(`${node.id}: write the text or pick a saved service message`);
     }
     if (node.type === "branch") {
       node.conditions.forEach((condition, index) => {

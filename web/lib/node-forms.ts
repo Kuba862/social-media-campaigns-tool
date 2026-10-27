@@ -7,7 +7,21 @@ export type Targets = Record<string, string>;
 export type Applied = { node: NodeDef; targets: Targets };
 type Of<T extends NodeType> = Extract<NodeDef, { type: T }>;
 
-export type TemplateOption = { id: string; name: string; language: string; placeholders: number };
+/** An approved template the send node may pick; `variables` are the names shown on its rows. */
+export type TemplateOption = {
+  id: string;
+  name: string;
+  language: string;
+  placeholders: number;
+  variables: string[];
+};
+/** A saved service message a send_text node may send instead of inline text. */
+export type ServiceOption = { id: string; name: string; language: string };
+
+/** What a send node's row is labelled: the variable's name, or its number for old templates. */
+export function variableLabel(template: TemplateOption | undefined, index: number): string {
+  return template?.variables[index] ?? String(index + 1);
+}
 
 /** Highest {{n}} in a template body: how many variables a send node has to map. */
 export function placeholderCount(body: string): number {
@@ -97,19 +111,31 @@ export const sendTemplateApply = (node: Of<"send_template">, v: SendTemplateValu
 });
 
 export const IF_CLOSED: IfClosed[] = ["skip", "fail"];
-export const sendTextSchema = z.object({
-  text: z.string().trim().min(1, "write the text"),
-  if_closed: z.enum(["skip", "fail"]),
-  next: target,
-});
+export const sendTextSchema = z
+  .object({
+    message_id: z.string(), // "" = inline text
+    text: z.string().trim(),
+    if_closed: z.enum(["skip", "fail"]),
+    next: target,
+  })
+  .refine((v) => v.message_id !== "" || v.text !== "", {
+    path: ["text"],
+    message: "write the text or pick a saved service message",
+  });
 export type SendTextValues = z.infer<typeof sendTextSchema>;
 export const sendTextDefaults = (node: Of<"send_text">, targets: Targets): SendTextValues => ({
+  message_id: node.message_id ?? "",
   text: node.text,
   if_closed: node.if_closed,
   next: targets[NEXT] ?? "",
 });
 export const sendTextApply = (node: Of<"send_text">, v: SendTextValues): Applied => ({
-  node: { ...node, text: v.text, if_closed: v.if_closed },
+  node: {
+    ...node,
+    text: v.message_id === "" ? v.text : "",
+    message_id: v.message_id === "" ? null : v.message_id,
+    if_closed: v.if_closed,
+  },
   targets: { [NEXT]: v.next },
 });
 

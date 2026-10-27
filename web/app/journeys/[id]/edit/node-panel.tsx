@@ -36,8 +36,10 @@ import {
   waitForReplyDefaults,
   waitForReplySchema,
   waitSchema,
+  variableLabel,
   type Applied,
   type BranchValues,
+  type ServiceOption,
   type SendTemplateValues,
   type SendTextValues,
   type StartValues,
@@ -54,9 +56,15 @@ type FormProps<T extends NodeDef["type"]> = Shared & { node: Extract<NodeDef, { 
 export function NodePanel({
   node,
   templates,
+  services,
   onDelete,
   ...shared
-}: Shared & { node: JourneyNode; templates: TemplateOption[]; onDelete: (id: string) => void }) {
+}: Shared & {
+  node: JourneyNode;
+  templates: TemplateOption[];
+  services: ServiceOption[];
+  onDelete: (id: string) => void;
+}) {
   const data = node.data;
   return (
     <aside className="panel">
@@ -66,7 +74,7 @@ export function NodePanel({
       {data.type === "send_template" && (
         <SendTemplateForm node={data} templates={templates} {...shared} />
       )}
-      {data.type === "send_text" && <SendTextForm node={data} {...shared} />}
+      {data.type === "send_text" && <SendTextForm node={data} services={services} {...shared} />}
       {data.type === "wait" && <WaitForm node={data} {...shared} />}
       {data.type === "wait_for_reply" && <WaitForReplyForm node={data} {...shared} />}
       {data.type === "branch" && <BranchForm node={data} {...shared} />}
@@ -192,7 +200,11 @@ function SendTemplateForm({
       )}
       {fields.map((field, index) => (
         <label key={field.id}>
-          {`{{${index + 1}}}`} from
+          {`{{${variableLabel(
+            templates.find((template) => template.id === templateId),
+            index,
+          )}}}`}{" "}
+          from
           <input {...form.register(`variables.${index}.path`)} placeholder="contact.first_name" />
           {form.formState.errors.variables?.[index]?.path && <span role="alert"> required</span>}
         </label>
@@ -203,17 +215,41 @@ function SendTemplateForm({
   );
 }
 
-function SendTextForm({ node, targets, options, onApply }: FormProps<"send_text">) {
+function SendTextForm({
+  node,
+  targets,
+  options,
+  services,
+  onApply,
+}: FormProps<"send_text"> & { services: ServiceOption[] }) {
   const form = useForm<SendTextValues>({
     resolver: zodResolver(sendTextSchema),
     defaultValues: sendTextDefaults(node, targets),
   });
+  const messageId = useWatch({ control: form.control, name: "message_id" });
   return (
     <form onSubmit={form.handleSubmit((values) => onApply(sendTextApply(node, values)))}>
       <label>
-        Text
-        <textarea {...form.register("text")} rows={4} placeholder="Cześć {{contact.first_name}}!" />
+        Saved service message
+        <select {...form.register("message_id")}>
+          <option value="">(none: write the text below)</option>
+          {services.map((service) => (
+            <option key={service.id} value={service.id}>
+              {service.name} ({service.language})
+            </option>
+          ))}
+        </select>
       </label>
+      {messageId === "" && (
+        <label>
+          Text
+          <textarea
+            {...form.register("text")}
+            rows={4}
+            placeholder="Cześć {{contact.first_name}}!"
+          />
+        </label>
+      )}
       {form.formState.errors.text && <p role="alert">{form.formState.errors.text.message}</p>}
       <p className="muted">
         A service message: free only within 24 hours of the contact&apos;s last message.

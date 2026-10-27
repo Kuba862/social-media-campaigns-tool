@@ -57,6 +57,21 @@ export async function createDraft(page: Page, name = `e2e_${Date.now()}`): Promi
   return name;
 }
 
+/** Saves a service message through the creator; returns its name. */
+export async function createServiceMessage(
+  page: Page,
+  name = `e2e_svc_${Date.now()}`,
+): Promise<string> {
+  await page.goto("/templates/new");
+  await page.getByRole("button", { name: "Service message", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill(name);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByLabel("Body", { exact: false }).fill("Dziękujemy za odpowiedź 🙏");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("row").filter({ hasText: name })).toContainText("READY");
+  return name;
+}
+
 /** Creates a template draft in the panel and approves it; returns its name. */
 export async function approvedTemplate(page: Page, api: APIRequestContext): Promise<string> {
   const name = await createDraft(page);

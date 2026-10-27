@@ -8,6 +8,7 @@ import {
   sendTemplateDefaults,
   sendTextApply,
   sendTextDefaults,
+  variableLabel,
   toIso,
   updateContactApply,
   variableRows,
@@ -24,7 +25,15 @@ describe("durations", () => {
 });
 
 describe("send_template", () => {
-  const templates = [{ id: "t-2", name: "offer", language: "pl", placeholders: 2 }];
+  const templates = [
+    {
+      id: "t-2",
+      name: "offer",
+      language: "pl",
+      placeholders: 2,
+      variables: ["first_name", "offer"],
+    },
+  ];
   const node = {
     id: "send_1",
     type: "send_template" as const,
@@ -121,25 +130,50 @@ describe("send_text", () => {
     if_closed: "skip" as const,
   };
 
-  it("reads the text, the window policy and the next handle", () => {
+  it("reads the text, the saved message, the window policy and the next handle", () => {
     expect(sendTextDefaults(node, { next: "end" })).toEqual({
+      message_id: "",
       text: "Hej",
       if_closed: "skip",
       next: "end",
     });
+    expect(sendTextDefaults({ ...node, text: "", message_id: "svc-1" }, {}).message_id).toBe(
+      "svc-1",
+    );
   });
 
-  it("writes them back", () => {
-    const applied = sendTextApply(node, {
+  it("writes inline text back, or a saved message with the text cleared", () => {
+    const inline = sendTextApply(node, {
+      message_id: "",
       text: "Cześć {{contact.first_name}}",
       if_closed: "fail",
       next: "wait_1",
     });
-    expect(applied.node).toEqual({
+    expect(inline.node).toEqual({
       ...node,
       text: "Cześć {{contact.first_name}}",
+      message_id: null,
       if_closed: "fail",
     });
-    expect(applied.targets).toEqual({ next: "wait_1" });
+    expect(inline.targets).toEqual({ next: "wait_1" });
+    const saved = sendTextApply(node, {
+      message_id: "svc-1",
+      text: "Hej",
+      if_closed: "skip",
+      next: "end",
+    });
+    expect(saved.node).toEqual({ ...node, text: "", message_id: "svc-1", if_closed: "skip" });
+  });
+
+  it("labels send-node rows by variable name, or by number for old templates", () => {
+    const named = {
+      id: "t",
+      name: "x",
+      language: "pl",
+      placeholders: 2,
+      variables: ["first_name", "offer"],
+    };
+    expect(variableLabel(named, 1)).toBe("offer");
+    expect(variableLabel(undefined, 1)).toBe("2");
   });
 });

@@ -29,7 +29,7 @@ export type IfClosed = "skip" | "fail";
 export type NodeDef =
   | { id: string; type: "start" }
   | { id: string; type: "send_template"; template_id: string; variables: Record<string, string> }
-  | { id: string; type: "send_text"; text: string; if_closed: IfClosed }
+  | { id: string; type: "send_text"; text: string; if_closed: IfClosed; message_id?: string | null }
   | { id: string; type: "wait"; duration: string }
   | { id: string; type: "wait_for_reply"; timeout: string }
   | { id: string; type: "branch"; conditions: Condition[]; else: string }
@@ -61,7 +61,7 @@ export function newNode(type: NodeType, id: string): NodeDef {
     case "send_template":
       return { id, type, template_id: "", variables: {} };
     case "send_text":
-      return { id, type, text: "", if_closed: "skip" };
+      return { id, type, text: "", if_closed: "skip", message_id: null };
     case "wait":
       return { id, type, duration: "PT1H" };
     case "wait_for_reply":
