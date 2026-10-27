@@ -1,7 +1,7 @@
 import { Nav } from "@/components/nav";
 import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
-import { eventLabels, type MessageRow } from "@/lib/messages";
+import { eventLabels, messageLabel, type MessageRow } from "@/lib/messages";
 
 async function loadMessages(): Promise<{ rows: MessageRow[]; problem: string | null }> {
   try {
@@ -30,7 +30,7 @@ export default async function MessagesPage() {
             <thead>
               <tr>
                 <th>Created</th>
-                <th>Template</th>
+                <th>Message</th>
                 <th>To</th>
                 <th>Status</th>
                 <th>Events</th>
@@ -41,9 +41,7 @@ export default async function MessagesPage() {
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td>{row.created_at.slice(0, 19).replace("T", " ")}</td>
-                  <td>
-                    {row.templates ? `${row.templates.name} (${row.templates.language})` : "-"}
-                  </td>
+                  <td>{messageLabel(row)}</td>
                   <td>{row.contacts?.phone_e164 ?? "-"}</td>
                   <td>
                     <Status value={row.status} />

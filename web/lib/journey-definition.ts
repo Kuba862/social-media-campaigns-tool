@@ -1,11 +1,19 @@
 /** The journey definition JSON as the engine reads it (backend core/journey_schema.py). */
 
 export type NodeType =
-  "start" | "send_template" | "wait" | "wait_for_reply" | "branch" | "update_contact" | "end";
+  | "start"
+  | "send_template"
+  | "send_text"
+  | "wait"
+  | "wait_for_reply"
+  | "branch"
+  | "update_contact"
+  | "end";
 
 export const NODE_TYPES: NodeType[] = [
   "start",
   "send_template",
+  "send_text",
   "wait",
   "wait_for_reply",
   "branch",
@@ -14,11 +22,14 @@ export const NODE_TYPES: NodeType[] = [
 ];
 
 export type Condition = { if: Record<string, string>; next: string };
+/** What a send_text node does when the contact's 24-hour window is closed. */
+export type IfClosed = "skip" | "fail";
 
 /** A draft may hold unfinished nodes (empty template, empty else); publishing validates them. */
 export type NodeDef =
   | { id: string; type: "start" }
   | { id: string; type: "send_template"; template_id: string; variables: Record<string, string> }
+  | { id: string; type: "send_text"; text: string; if_closed: IfClosed }
   | { id: string; type: "wait"; duration: string }
   | { id: string; type: "wait_for_reply"; timeout: string }
   | { id: string; type: "branch"; conditions: Condition[]; else: string }
@@ -49,6 +60,8 @@ export function newNode(type: NodeType, id: string): NodeDef {
       return { id, type };
     case "send_template":
       return { id, type, template_id: "", variables: {} };
+    case "send_text":
+      return { id, type, text: "", if_closed: "skip" };
     case "wait":
       return { id, type, duration: "PT1H" };
     case "wait_for_reply":
