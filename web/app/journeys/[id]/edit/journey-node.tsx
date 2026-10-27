@@ -9,6 +9,7 @@ function summary(node: NodeDef): string {
     case "send_template":
       return node.template_id ? `template ${node.template_id.slice(0, 8)}…` : "no template";
     case "send_text":
+      if (node.message_id) return `saved message ${node.message_id.slice(0, 8)}…`;
       return node.text
         ? `"${node.text.slice(0, 22)}${node.text.length > 22 ? "…" : ""}"`
         : "no text";

@@ -34,7 +34,7 @@ import {
   type JourneyNode,
 } from "@/lib/journey-graph";
 import { problemsOf } from "@/lib/journey-validation";
-import type { Applied, TemplateOption } from "@/lib/node-forms";
+import type { Applied, ServiceOption, TemplateOption } from "@/lib/node-forms";
 import { publishDraft, saveDraft, type SaveResult } from "./actions";
 import { JourneyNodeView } from "./journey-node";
 import { NodePanel } from "./node-panel";
@@ -46,6 +46,7 @@ type EditorProps = {
   definition: Definition;
   layout: Layout;
   templates: TemplateOption[];
+  services: ServiceOption[];
 };
 
 /** The provider lets the editor refit the view after the palette adds a node. */
@@ -57,7 +58,7 @@ export function Editor(props: EditorProps) {
   );
 }
 
-function EditorInner({ journeyId, definition, layout, templates }: EditorProps) {
+function EditorInner({ journeyId, definition, layout, templates, services }: EditorProps) {
   const router = useRouter();
   const [initial] = useState(() => toGraph(definition, layout));
   const [nodes, setNodes, onNodesChange] = useNodesState<JourneyNode>(initial.nodes);
@@ -209,6 +210,7 @@ function EditorInner({ journeyId, definition, layout, templates }: EditorProps) 
             targets={targetsOf(selected.id, edges)}
             options={targetOptions}
             templates={templates}
+            services={services}
             onApply={apply}
             onDelete={remove}
           />

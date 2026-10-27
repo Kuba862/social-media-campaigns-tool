@@ -846,6 +846,18 @@ parser `specFromForm` i formularz pod listą znikają; testy e2e przechodzą prz
 w stylu WhatsApp (`components/message-preview.tsx`): nagłówek, treść z przykładami w miejscu
 zmiennych (`previewSegments`), stopka i przyciski, w obu motywach, oraz liczniki znaków.
 
+### 51. Edytor journey: zmienne po nazwach, węzeł `send_text` z zapisaną wiadomością (2026-10-27)
+
+Decyzja: wiersze zmiennych w węźle `send_template` są podpisane nazwami z
+`components.variables` zatwierdzonego szablonu (dla starych szablonów numerami), a definicja
+journey nadal mapuje je po numerach, więc silnik nie zmienia się. Węzeł `send_text` dostaje
+w panelu wybór zapisanej wiadomości serwisowej (`message_id`); po wyborze pole tekstu znika,
+a edytor zapisuje pusty tekst. Strona edytora buduje dwie listy z jednego `GET /templates`:
+zatwierdzone szablony rodzaju `template` i wiadomości rodzaju `service`.
+Powód: po wpisach 47 i 49 właściciel układa treści w kreatorze i chce ich używać w journey bez
+przepisywania; lustro walidacji w panelu mówi „write the text or pick a saved service message”
+w miejscu dawnego „write the text”.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
