@@ -150,6 +150,7 @@ async def test_validation_error_is_permanent_with_code() -> None:
         await meta.client().send_template("+48600000001", "nope", "pl", [])
     assert (info.value.code, info.value.subcode) == (100, 2494010)
     assert "Invalid parameter" in str(info.value)
+    assert "Template name does not exist in the translation" in str(info.value)
 
 
 def test_text_payload_is_a_plain_message_without_link_preview() -> None:
