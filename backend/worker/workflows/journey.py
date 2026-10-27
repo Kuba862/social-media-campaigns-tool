@@ -8,18 +8,24 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from core.context import condition_matches, resolve
+    from core.context import condition_matches, render_text, resolve
     from core.journey_schema import (
         BranchNode,
         EndNode,
         JourneyDefinition,
         SendTemplateNode,
+        SendTextNode,
         StartNode,
         UpdateContactNode,
         WaitForReplyNode,
         WaitNode,
     )
-    from worker.activities.journey import JourneyActivities, RunProgress, SendTemplateInput
+    from worker.activities.journey import (
+        JourneyActivities,
+        RunProgress,
+        SendTemplateInput,
+        SendTextInput,
+    )
 
 ACTIVITY_TIMEOUT = timedelta(seconds=30)
 SEND_RETRY = RetryPolicy(initial_interval=timedelta(seconds=2), maximum_attempts=5)
@@ -99,14 +105,10 @@ class JourneyWorkflow:
                 return await self._finish(run, current, "opted_out")
             if isinstance(node, EndNode):
                 return await self._finish(run, current, "completed")
-            if isinstance(node, SendTemplateNode):
-                consent = await workflow.execute_activity_method(
-                    JourneyActivities.check_consent,
-                    run.contact_id,
-                    start_to_close_timeout=ACTIVITY_TIMEOUT,
-                )
-                if not consent:
+            if isinstance(node, SendTemplateNode | SendTextNode):
+                if not await self._has_consent(run):
                     return await self._finish(run, current, "skipped_no_consent")
+            if isinstance(node, SendTemplateNode):
                 values = [
                     str(resolve(path, self._context) or "")
                     for _, path in sorted(node.variables.items(), key=lambda kv: int(kv[0]))
@@ -123,6 +125,25 @@ class JourneyWorkflow:
                 result = await workflow.execute_activity_method(
                     JourneyActivities.send_template,
                     request,
+                    start_to_close_timeout=ACTIVITY_TIMEOUT,
+                    retry_policy=SEND_RETRY,
+                )
+                if result.status == "failed":
+                    return await self._finish(run, current, "failed")
+                current = next_of[current]
+            elif isinstance(node, SendTextNode):
+                text_request = SendTextInput(
+                    run.run_id,
+                    workflow.info().workflow_id,
+                    current,
+                    visits[current],
+                    run.contact_id,
+                    render_text(node.text, self._context),
+                    node.if_closed,
+                )
+                result = await workflow.execute_activity_method(
+                    JourneyActivities.send_text,
+                    text_request,
                     start_to_close_timeout=ACTIVITY_TIMEOUT,
                     retry_policy=SEND_RETRY,
                 )
@@ -163,6 +184,14 @@ class JourneyWorkflow:
                 current = next(matched, node.else_)
             else:
                 current = next_of[current]
+
+    async def _has_consent(self, run: JourneyRunInput) -> bool:
+        consent: bool = await workflow.execute_activity_method(
+            JourneyActivities.check_consent,
+            run.contact_id,
+            start_to_close_timeout=ACTIVITY_TIMEOUT,
+        )
+        return consent
 
     async def _pause(self, duration: timedelta) -> None:
         """A wait that opt_out can cut short; the timer firing is the normal way out."""

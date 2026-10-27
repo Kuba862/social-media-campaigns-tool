@@ -8,6 +8,10 @@ function summary(node: NodeDef): string {
   switch (node.type) {
     case "send_template":
       return node.template_id ? `template ${node.template_id.slice(0, 8)}…` : "no template";
+    case "send_text":
+      return node.text
+        ? `"${node.text.slice(0, 22)}${node.text.length > 22 ? "…" : ""}"`
+        : "no text";
     case "wait":
       return node.duration;
     case "wait_for_reply":

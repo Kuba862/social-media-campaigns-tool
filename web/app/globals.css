@@ -382,6 +382,7 @@ ul {
   border-color: transparent;
 }
 .badge[data-status="cancelled"],
+.badge[data-status="skipped"],
 .badge[data-status="skipped_no_consent"],
 .badge[data-status="PAUSED"],
 .badge[data-status="DISABLED"] {
@@ -729,6 +730,9 @@ td:last-child {
 }
 .node[data-type="send_template"] {
   --node-accent: var(--accent);
+}
+.node[data-type="send_text"] {
+  --node-accent: #10b981;
 }
 .node[data-type="wait"],
 .node[data-type="wait_for_reply"] {

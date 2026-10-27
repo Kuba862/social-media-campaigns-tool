@@ -151,4 +151,13 @@ describe("problemsOf", () => {
   it("is empty for the guide journey", () => {
     expect(problemsOf(GUIDE, APPROVED)).toEqual([]);
   });
+
+  it("asks for the text of an empty send_text node", () => {
+    const text: NodeDef = { id: "t", type: "send_text", text: " ", if_closed: "skip" };
+    const problems = problemsOf(
+      definition([start(), text, end()], [edge("start", "t"), edge("t", "end")]),
+      APPROVED,
+    );
+    expect(problems).toEqual(["t: write the text"]);
+  });
 });

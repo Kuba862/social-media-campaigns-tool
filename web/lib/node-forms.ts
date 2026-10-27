@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { NodeDef, NodeType } from "./journey-definition";
+import type { IfClosed, NodeDef, NodeType } from "./journey-definition";
 import { conditionHandle, ELSE, NEXT } from "./journey-graph";
 
 /** Handle -> target node id; "" means not connected. */
@@ -93,6 +93,23 @@ export const sendTemplateApply = (node: Of<"send_template">, v: SendTemplateValu
     template_id: v.template_id,
     variables: Object.fromEntries(v.variables.map((row, i) => [String(i + 1), row.path])),
   },
+  targets: { [NEXT]: v.next },
+});
+
+export const IF_CLOSED: IfClosed[] = ["skip", "fail"];
+export const sendTextSchema = z.object({
+  text: z.string().trim().min(1, "write the text"),
+  if_closed: z.enum(["skip", "fail"]),
+  next: target,
+});
+export type SendTextValues = z.infer<typeof sendTextSchema>;
+export const sendTextDefaults = (node: Of<"send_text">, targets: Targets): SendTextValues => ({
+  text: node.text,
+  if_closed: node.if_closed,
+  next: targets[NEXT] ?? "",
+});
+export const sendTextApply = (node: Of<"send_text">, v: SendTextValues): Applied => ({
+  node: { ...node, text: v.text, if_closed: v.if_closed },
   targets: { [NEXT]: v.next },
 });
 
