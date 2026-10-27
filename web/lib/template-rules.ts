@@ -202,3 +202,30 @@ export function toServiceSpec(name: string, v: ServiceValues): ServiceMessageSpe
     image_url: v.image_url.trim() === "" ? null : v.image_url.trim(),
   };
 }
+
+export type PreviewSegment = { text: string; variable?: string };
+
+/**
+ * The body split for the preview: plain text, and each variable replaced by its example value
+ * (or left as the placeholder when no example is typed yet) so the reader sees which part moves.
+ */
+export function previewSegments(body: string, examples: Record<string, string>): PreviewSegment[] {
+  const segments: PreviewSegment[] = [];
+  let last = 0;
+  for (const match of body.matchAll(PLACEHOLDER)) {
+    const start = match.index ?? 0;
+    if (start > last) segments.push({ text: body.slice(last, start) });
+    const name = match[1] ?? "";
+    const example = examples[name]?.trim();
+    segments.push({ text: example ? example : match[0], variable: name });
+    last = start + match[0].length;
+  }
+  if (last < body.length) segments.push({ text: body.slice(last) });
+  return segments;
+}
+
+/** Example values keyed by variable name, from the form's rows in variable order. */
+export function examplesByName(body: string, rows: { value: string }[]): Record<string, string> {
+  const names = variablesOf(body);
+  return Object.fromEntries(names.map((name, index) => [name, rows[index]?.value ?? ""]));
+}

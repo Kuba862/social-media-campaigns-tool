@@ -444,6 +444,119 @@ label.inline input[type="radio"]:focus-visible {
   color: var(--text-3);
   font-size: 0.82rem;
 }
+.hint.count {
+  margin-top: calc(-1 * var(--space-3));
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.creator-side {
+  display: grid;
+  gap: var(--space-4);
+  position: sticky;
+  top: calc(var(--nav-h) + var(--space-4));
+}
+.creator-side h2 {
+  margin: 0 0 var(--space-3);
+  font-size: 1rem;
+}
+.wa-chat {
+  --wa-bg: #e5ddd5;
+  --wa-bubble: #ffffff;
+  --wa-ink: #111b21;
+  --wa-ink-2: #667781;
+  --wa-link: #027eb5;
+  --wa-mark: #fff2c4;
+  --wa-stripe: rgba(255, 255, 255, 0.22);
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  background: var(--wa-bg)
+    repeating-linear-gradient(45deg, transparent 0 11px, var(--wa-stripe) 11px 12px);
+  color: var(--wa-ink);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.wa-bubble {
+  position: relative;
+  max-width: 320px;
+  padding: 6px 8px 18px;
+  border-radius: 8px 8px 8px 0;
+  background: var(--wa-bubble);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.13);
+  overflow-wrap: anywhere;
+}
+.wa-image {
+  margin: -2px -4px 6px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.06);
+  min-height: 48px;
+}
+.wa-image img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+}
+.wa-header {
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+.wa-body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.wa-body mark {
+  background: var(--wa-mark);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.wa-placeholder {
+  color: var(--wa-ink-2);
+  font-style: italic;
+}
+.wa-footer {
+  margin: 6px 0 0;
+  color: var(--wa-ink-2);
+  font-size: 0.8rem;
+}
+.wa-time {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  color: var(--wa-ink-2);
+  font-size: 0.68rem;
+}
+.wa-buttons {
+  max-width: 320px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+.wa-buttons li {
+  padding: 8px;
+  text-align: center;
+  background: var(--wa-bubble);
+  color: var(--wa-link);
+  border-radius: 8px;
+  font-weight: 500;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.13);
+}
+@media (prefers-color-scheme: dark) {
+  .wa-chat {
+    --wa-bg: #0b141a;
+    --wa-bubble: #202c33;
+    --wa-ink: #e9edef;
+    --wa-ink-2: #8696a0;
+    --wa-link: #53bdeb;
+    --wa-mark: #4a3f14;
+    --wa-stripe: rgba(255, 255, 255, 0.04);
+  }
+}
 .rules h2 {
   margin: 0 0 var(--space-3);
   font-size: 1rem;
@@ -463,6 +576,9 @@ label.inline input[type="radio"]:focus-visible {
 @media (max-width: 900px) {
   .creator {
     grid-template-columns: 1fr;
+  }
+  .creator-side {
+    position: static;
   }
   .type-tiles {
     grid-template-columns: 1fr;

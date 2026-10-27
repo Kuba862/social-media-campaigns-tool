@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { MessagePreview, type PreviewButton } from "@/components/message-preview";
 import {
   useFieldArray,
   useForm,
@@ -12,10 +13,12 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   bodyProblems,
+  examplesByName,
   exampleRows,
   HEADER_KINDS,
   LANGUAGES,
   nameProblem,
+  previewSegments,
   serviceDefaults,
   serviceSchema,
   templateDefaults,
@@ -23,12 +26,23 @@ import {
   toServiceSpec,
   toTemplateSpec,
   variablesOf,
+  type PreviewSegment,
   type ServiceValues,
   type TemplateValues,
 } from "@/lib/template-rules";
 import { saveServiceMessage, saveTemplate } from "./actions";
 
 type Kind = "template" | "service";
+
+type PreviewState = {
+  header?: string | null;
+  image?: string | null;
+  body: PreviewSegment[];
+  footer?: string | null;
+  buttons?: PreviewButton[];
+};
+
+const EMPTY_PREVIEW: PreviewState = { body: [] };
 
 const HEADER_LABELS: Record<(typeof HEADER_KINDS)[number], string> = {
   none: "No header",
@@ -41,6 +55,7 @@ export function Creator({ takenNames }: { takenNames: string[] }) {
   const [kind, setKind] = useState<Kind | null>(null);
   const [name, setName] = useState("");
   const [step, setStep] = useState<1 | 2>(1);
+  const [preview, setPreview] = useState<PreviewState>(EMPTY_PREVIEW);
   const problem = name === "" ? null : nameProblem(name, new Set(takenNames));
   const ready = kind !== null && name !== "" && problem === null;
   return (
@@ -90,31 +105,50 @@ export function Creator({ takenNames }: { takenNames: string[] }) {
           </>
         )}
         {step === 2 && kind === "template" && (
-          <TemplateForm name={name} onBack={() => setStep(1)} />
+          <TemplateForm name={name} onBack={() => setStep(1)} onPreview={setPreview} />
         )}
-        {step === 2 && kind === "service" && <ServiceForm name={name} onBack={() => setStep(1)} />}
+        {step === 2 && kind === "service" && (
+          <ServiceForm name={name} onBack={() => setStep(1)} onPreview={setPreview} />
+        )}
       </section>
-      <aside className="card pad rules" aria-label="Meta's rules">
-        <h2>What Meta accepts</h2>
-        <ul>
-          <li>
-            Variables as <code>{"{{first_name}}"}</code>: not at the start or end of the body, never
-            two in a row, each with an example value for the reviewers.
-          </li>
-          <li>
-            UTILITY is for confirmations, reminders and updates the contact expects; promotional
-            wording gets a template re-categorised as MARKETING, which costs about three times more.
-          </li>
-          <li>Header: up to 60 characters of text, or an image from a public https address.</li>
-          <li>Footer: up to 60 characters. Buttons: up to 5, at most 2 with a link.</li>
-          <li>Emoji are fine in the body, the header and the buttons.</li>
-          <li>
-            A service message is free inside the 24-hour window after the contact&apos;s last
-            message (1000 a month per number); outside it the journey skips or fails the node.
-          </li>
-        </ul>
-      </aside>
+      <div className="creator-side">
+        {step === 2 && (
+          <section className="card pad" aria-label="Preview">
+            <h2>Preview</h2>
+            <MessagePreview title="Message preview" {...preview} />
+          </section>
+        )}
+        <aside className="card pad rules" aria-label="Meta's rules">
+          <h2>What Meta accepts</h2>
+          <ul>
+            <li>
+              Variables as <code>{"{{first_name}}"}</code>: not at the start or end of the body,
+              never two in a row, each with an example value for the reviewers.
+            </li>
+            <li>
+              UTILITY is for confirmations, reminders and updates the contact expects; promotional
+              wording gets a template re-categorised as MARKETING, which costs about three times
+              more.
+            </li>
+            <li>Header: up to 60 characters of text, or an image from a public https address.</li>
+            <li>Footer: up to 60 characters. Buttons: up to 5, at most 2 with a link.</li>
+            <li>Emoji are fine in the body, the header and the buttons.</li>
+            <li>
+              A service message is free inside the 24-hour window after the contact&apos;s last
+              message (1000 a month per number); outside it the journey skips or fails the node.
+            </li>
+          </ul>
+        </aside>
+      </div>
     </div>
+  );
+}
+
+function Counter({ value, max }: { value: string; max: number }) {
+  return (
+    <p className="hint count" aria-hidden="true">
+      {value.length}/{max}
+    </p>
   );
 }
 
@@ -175,7 +209,15 @@ function LanguageSelect<T extends FieldValues>({
   );
 }
 
-function TemplateForm({ name, onBack }: { name: string; onBack: () => void }) {
+function TemplateForm({
+  name,
+  onBack,
+  onPreview,
+}: {
+  name: string;
+  onBack: () => void;
+  onPreview: (preview: PreviewState) => void;
+}) {
   const [pending, start] = useTransition();
   const [failure, setFailure] = useState<string | null>(null);
   const form = useForm<TemplateValues>({
@@ -186,12 +228,31 @@ function TemplateForm({ name, onBack }: { name: string; onBack: () => void }) {
   const buttons = useFieldArray({ control: form.control, name: "buttons" });
   const body = useWatch({ control: form.control, name: "body" }) ?? "";
   const headerKind = useWatch({ control: form.control, name: "header_kind" });
-  const buttonRows = useWatch({ control: form.control, name: "buttons" }) ?? [];
+  const header = useWatch({ control: form.control, name: "header" }) ?? "";
+  const headerImage = useWatch({ control: form.control, name: "header_image_url" }) ?? "";
+  const footer = useWatch({ control: form.control, name: "footer" }) ?? "";
+  const buttonRows = useWatch({ control: form.control, name: "buttons", defaultValue: [] });
+  const exampleRowsLive = useWatch({
+    control: form.control,
+    name: "example_values",
+    defaultValue: [],
+  });
   useEffect(() => {
     const current = form.getValues("example_values");
     const rows = exampleRows(body, current);
     if (rows.length !== current.length) examples.replace(rows);
   }, [body, form, examples]);
+  useEffect(() => {
+    const image =
+      headerKind === "image" && /^https:\/\/\S+$/.test(headerImage) ? headerImage : null;
+    onPreview({
+      header: headerKind === "text" ? header : null,
+      image,
+      body: previewSegments(body, examplesByName(body, exampleRowsLive)),
+      footer,
+      buttons: buttonRows.map((button) => ({ type: button.type, text: button.text })),
+    });
+  }, [onPreview, body, headerKind, header, headerImage, footer, buttonRows, exampleRowsLive]);
   const variables = variablesOf(body);
   const problems = bodyProblems(body);
   const errors = form.formState.errors;
@@ -225,10 +286,13 @@ function TemplateForm({ name, onBack }: { name: string; onBack: () => void }) {
           ))}
         </div>
         {headerKind === "text" && (
-          <label>
-            Header text
-            <input {...form.register("header")} maxLength={60} placeholder="Nowa akcja" />
-          </label>
+          <>
+            <label>
+              Header text
+              <input {...form.register("header")} maxLength={60} placeholder="Nowa akcja" />
+            </label>
+            <Counter value={header} max={60} />
+          </>
         )}
         {headerKind === "image" && (
           <label>
@@ -246,6 +310,7 @@ function TemplateForm({ name, onBack }: { name: string; onBack: () => void }) {
           placeholder="Cześć {{first_name}}, dziękujemy za wsparcie 🙏"
         />
       </label>
+      <Counter value={body} max={1024} />
       {problems.length > 0 && (
         <ul className="problems" aria-label="Body problems">
           {problems.map((problem) => (
@@ -269,6 +334,7 @@ function TemplateForm({ name, onBack }: { name: string; onBack: () => void }) {
           placeholder="Odpowiedz STOP, aby zrezygnować"
         />
       </label>
+      <Counter value={footer} max={60} />
       <Problem message={errors.footer?.message} />
       <fieldset>
         <legend>Buttons (up to 5, at most 2 with a link)</legend>
@@ -325,13 +391,27 @@ function TemplateForm({ name, onBack }: { name: string; onBack: () => void }) {
   );
 }
 
-function ServiceForm({ name, onBack }: { name: string; onBack: () => void }) {
+function ServiceForm({
+  name,
+  onBack,
+  onPreview,
+}: {
+  name: string;
+  onBack: () => void;
+  onPreview: (preview: PreviewState) => void;
+}) {
   const [pending, start] = useTransition();
   const [failure, setFailure] = useState<string | null>(null);
   const form = useForm<ServiceValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: serviceDefaults,
   });
+  const body = useWatch({ control: form.control, name: "body" }) ?? "";
+  const imageUrl = useWatch({ control: form.control, name: "image_url" }) ?? "";
+  useEffect(() => {
+    const image = /^https:\/\/\S+$/.test(imageUrl) ? imageUrl : null;
+    onPreview({ image, body: [{ text: body }] });
+  }, [onPreview, body, imageUrl]);
   const errors = form.formState.errors;
   const submit = (values: ServiceValues) =>
     start(async () => {
@@ -352,6 +432,7 @@ function ServiceForm({ name, onBack }: { name: string; onBack: () => void }) {
         Body (no variables; emoji are fine)
         <textarea {...form.register("body")} rows={6} placeholder="Dziękujemy za odpowiedź 🙏" />
       </label>
+      <Counter value={body} max={imageUrl.trim() === "" ? 4096 : 1024} />
       <Problem message={errors.body?.message} />
       {failure && <p role="alert">{failure}</p>}
       <div className="toolbar">

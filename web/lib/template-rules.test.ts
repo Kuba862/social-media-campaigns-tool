@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   bodyProblems,
+  examplesByName,
   exampleRows,
   nameProblem,
   serviceSchema,
   templateDefaults,
+  previewSegments,
   templateSchema,
   toTemplateSpec,
   variablesOf,
@@ -99,5 +101,20 @@ describe("schemas", () => {
     expect(nameProblem("Hello", new Set())).toMatch(/lowercase/);
     expect(nameProblem("hello_1", new Set(["hello_1"]))).toMatch(/taken/);
     expect(nameProblem("hello_1", new Set())).toBeNull();
+  });
+});
+
+describe("preview", () => {
+  it("replaces variables with their examples and keeps the placeholder otherwise", () => {
+    const examples = examplesByName("Cześć {{first_name}}, {{offer}}!", [{ value: "Ala" }]);
+    expect(examples).toEqual({ first_name: "Ala", offer: "" });
+    expect(previewSegments("Cześć {{first_name}}, {{offer}}!", examples)).toEqual([
+      { text: "Cześć " },
+      { text: "Ala", variable: "first_name" },
+      { text: ", " },
+      { text: "{{offer}}", variable: "offer" },
+      { text: "!" },
+    ]);
+    expect(previewSegments("plain", {})).toEqual([{ text: "plain" }]);
   });
 });

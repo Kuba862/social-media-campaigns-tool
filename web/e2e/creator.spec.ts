@@ -30,6 +30,9 @@ test("the creator explains Meta's variable rules while typing and saves a servic
   await expect(page.getByRole("list", { name: "Body problems" })).toHaveCount(0);
   await page.getByLabel("Example for {{first_name}}").fill("Ala");
   await page.getByLabel("Example for {{offer}}").fill("20%");
+  await expect(page.getByRole("figure", { name: "Message preview" })).toContainText(
+    "Cześć Ala, oferta 20%.",
+  );
   await page.getByRole("button", { name: "Add button" }).click();
   await page.locator('input[name="buttons.0.text"]').fill("Tak");
   await page.getByRole("button", { name: "Save draft" }).click();
