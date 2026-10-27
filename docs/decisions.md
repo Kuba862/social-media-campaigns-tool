@@ -842,7 +842,9 @@ tylko przy szablonach.
 Powód: właściciel chce tworzyć szablony i wiadomości serwisowe w jednym miejscu z lepszym UX;
 rozdzielenie listy od kreatora i dwa kroki porządkują długi formularz. Konsekwencje: stary
 parser `specFromForm` i formularz pod listą znikają; testy e2e przechodzą przez kreator
-(`createDraft` w `e2e/helpers.ts`); podgląd wiadomości w stylu WhatsApp to krok 11g.
+(`createDraft` w `e2e/helpers.ts`). Krok 11g dokłada w prawej kolumnie podgląd wiadomości
+w stylu WhatsApp (`components/message-preview.tsx`): nagłówek, treść z przykładami w miejscu
+zmiennych (`previewSegments`), stopka i przyciski, w obu motywach, oraz liczniki znaków.
 
 ## Later
 
