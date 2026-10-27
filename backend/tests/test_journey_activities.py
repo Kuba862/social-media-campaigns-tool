@@ -229,7 +229,8 @@ async def test_send_text_sends_a_saved_service_message_with_its_image() -> None:
         }
     )
     result = await acts.send_text(text_request(text="", message_id="svc-1"))
-    assert result.status == "sent" and meta.sent_images == [(PHONE, "https://x.y/a.png", "Dziękujemy!")]
+    assert result.status == "sent"
+    assert meta.sent_images == [(PHONE, "https://x.y/a.png", "Dziękujemy!")]
     row = db.rows("messages")[0]
     assert (row["template_id"], row["kind"], row["text"]) == ("svc-1", "text", "Dziękujemy!")
     with pytest.raises(ApplicationError, match="not a service message"):

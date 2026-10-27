@@ -322,6 +322,7 @@ async def test_send_image_posts_a_link_with_its_caption() -> None:
     result = await meta.client().send_image("+48600000001", "https://x.y/a.png", caption="Hej")
     assert meta.last is not None and meta.last.url.path == "/v24.0/PHONE1/messages"
     sent = meta.sent_json()
-    assert (sent["type"], sent["image"]) == ("image", {"link": "https://x.y/a.png", "caption": "Hej"})
+    assert sent["type"] == "image"
+    assert sent["image"] == {"link": "https://x.y/a.png", "caption": "Hej"}
     assert "caption" not in image_message_payload("+48600000001", "https://x.y/a.png")["image"]
     assert result.wamid.startswith("wamid.")

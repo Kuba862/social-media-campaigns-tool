@@ -235,7 +235,9 @@ SERVICE = {"name": "podziekowanie", "language": "pl", "body": "Dziękujemy za od
 
 
 def test_service_message_is_ready_at_once_and_never_goes_to_meta(client: TestClient) -> None:
-    row = client.post("/templates/service", json={**SERVICE, "image_url": "https://x.y/a.png"}).json()
+    row = client.post(
+        "/templates/service", json={**SERVICE, "image_url": "https://x.y/a.png"}
+    ).json()
     assert (row["kind"], row["status"], row["category"]) == ("service", "READY", "SERVICE")
     assert row["components"] == {
         "body": SERVICE["body"],
