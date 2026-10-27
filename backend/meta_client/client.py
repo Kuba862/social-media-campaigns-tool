@@ -6,6 +6,7 @@ import httpx
 
 from meta_client.errors import THROTTLING_CODES, MetaError, MetaPermanentError, MetaTransientError
 from meta_client.mapping import (
+    image_message_payload,
     message_payload,
     parse_created_template,
     parse_send_result,
@@ -101,6 +102,12 @@ class MetaClient:
     async def send_text(self, to_e164: str, text: str) -> SendResult:
         """A service message; outside the 24-hour window Meta answers with code 131047."""
         payload = text_message_payload(to_e164, text)
+        data = await self._post(f"/{self._phone_number_id}/messages", payload)
+        return parse_send_result(data)
+
+    async def send_image(self, to_e164: str, link: str, caption: str | None = None) -> SendResult:
+        """A service message with an image from a public https address and an optional caption."""
+        payload = image_message_payload(to_e164, link, caption)
         data = await self._post(f"/{self._phone_number_id}/messages", payload)
         return parse_send_result(data)
 

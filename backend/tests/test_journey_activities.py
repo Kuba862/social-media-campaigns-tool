@@ -214,3 +214,23 @@ async def test_send_template_passes_the_header_image_of_the_template() -> None:
     db.rows("templates")[0]["components"] = {"header_image_url": "https://cdn.example.org/a.png"}
     assert (await acts.send_template(request())).status == "sent"
     assert meta.sent_headers == ["https://cdn.example.org/a.png"]
+
+
+@pytest.mark.anyio
+async def test_send_text_sends_a_saved_service_message_with_its_image() -> None:
+    db, meta, acts = seeded()
+    inbound(db, 10)
+    db.rows("templates").append(
+        {
+            "id": "svc-1",
+            "kind": "service",
+            "status": "READY",
+            "components": {"body": "Dziękujemy!", "image_url": "https://x.y/a.png"},
+        }
+    )
+    result = await acts.send_text(text_request(text="", message_id="svc-1"))
+    assert result.status == "sent" and meta.sent_images == [(PHONE, "https://x.y/a.png", "Dziękujemy!")]
+    row = db.rows("messages")[0]
+    assert (row["template_id"], row["kind"], row["text"]) == ("svc-1", "text", "Dziękujemy!")
+    with pytest.raises(ApplicationError, match="not a service message"):
+        await acts.send_text(text_request(node_id="n3", text="", message_id="t-1"))

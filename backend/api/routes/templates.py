@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from api.auth import current_user
 from api.db import Row
 from api.deps import AppSettings, Db, Http, Meta, OptionalMeta
-from meta_client import MetaPermanentError, MetaTransientError, TemplateSpec
+from meta_client import MetaPermanentError, MetaTransientError, ServiceMessageSpec, TemplateSpec
 
 router = APIRouter(prefix="/templates", tags=["templates"], dependencies=[Depends(current_user)])
 
@@ -29,8 +29,26 @@ async def create_template(spec: TemplateSpec, db: Db, settings: AppSettings) -> 
             "name": spec.name,
             "language": spec.language,
             "category": spec.category,
+            "kind": "template",
             "components": _components(spec),
             "status": "DRAFT",
+        },
+    )
+
+
+@router.post("/service", status_code=status.HTTP_201_CREATED)
+async def create_service_message(spec: ServiceMessageSpec, db: Db, settings: AppSettings) -> Row:
+    """A saved service message: ready at once, never sent to Meta for review."""
+    return await db.insert(
+        "templates",
+        {
+            "waba_id": settings.meta_waba_id,
+            "name": spec.name,
+            "language": spec.language,
+            "category": "SERVICE",
+            "kind": "service",
+            "components": {"body": spec.body, "image_url": spec.image_url, "variables": []},
+            "status": "READY",
         },
     )
 
@@ -76,6 +94,7 @@ def _spec(row: Row) -> TemplateSpec:
 async def submit_template(template_id: str, db: Db, meta: Meta, http: Http) -> Row:
     """An image header first goes to Meta as a sample (download, then Resumable Upload)."""
     row = await _get(db, template_id)
+    _meta_kind(row)
     if row["status"] != "DRAFT":
         raise HTTPException(status.HTTP_409_CONFLICT, f"template is {row['status']}, not DRAFT")
     spec = _spec(row)
@@ -97,6 +116,7 @@ async def submit_template(template_id: str, db: Db, meta: Meta, http: Http) -> R
 async def sync_template(template_id: str, db: Db, meta: Meta) -> Row:
     """Asks Meta for the current verdict; the webhook (next step) will make this automatic."""
     row = await _get(db, template_id)
+    _meta_kind(row)
     try:
         state = await meta.get_template_state(row["name"], row["language"])
     except MetaTransientError as exc:
@@ -130,6 +150,11 @@ async def delete_template(template_id: str, db: Db, meta: OptionalMeta) -> Respo
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     await db.delete("templates", template_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _meta_kind(row: Row) -> None:
+    if row.get("kind", "template") != "template":
+        raise HTTPException(status.HTTP_409_CONFLICT, "service messages are not submitted to Meta")
 
 
 async def _get(db: Db, template_id: str) -> Row:

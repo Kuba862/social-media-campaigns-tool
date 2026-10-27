@@ -140,6 +140,7 @@ class JourneyWorkflow:
                     run.contact_id,
                     render_text(node.text, self._context),
                     node.if_closed,
+                    node.message_id,
                 )
                 result = await workflow.execute_activity_method(
                     JourneyActivities.send_text,

@@ -126,6 +126,7 @@ class FakeMeta:
         self.sent_headers: list[str | None] = []  # header image url of each template send
         self.sent: list[tuple[str, str, str, list[str]]] = []
         self.sent_texts: list[tuple[str, str]] = []
+        self.sent_images: list[tuple[str, str, str | None]] = []
 
     async def create_template(
         self, spec: TemplateSpec, header_handle: str | None = None
@@ -159,6 +160,13 @@ class FakeMeta:
         self.sent.append((to_e164, template_name, language, body_values))
         self.sent_headers.append(header_image_url)
         wamid = f"wamid.T{len(self.sent)}"
+        return SendResult(wamid=wamid, status="accepted", raw={"messages": [{"id": wamid}]})
+
+    async def send_image(self, to_e164: str, link: str, caption: str | None = None) -> SendResult:
+        if self.send_error is not None:
+            raise self.send_error
+        self.sent_images.append((to_e164, link, caption))
+        wamid = f"wamid.I{len(self.sent_images)}"
         return SendResult(wamid=wamid, status="accepted", raw={"messages": [{"id": wamid}]})
 
     async def delete_template(self, name: str, meta_template_id: str | None = None) -> None:

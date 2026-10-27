@@ -250,8 +250,14 @@ async def _check(db: Database, definition: dict[str, Any]) -> None:
     except ValidationError as exc:
         problems = [f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()]
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problems) from exc
-    approved = {t["id"] for t in await db.select("templates", status="eq.APPROVED")}
-    errors = validate(parsed, approved)
+    rows = await db.select("templates")
+    approved = {
+        t["id"]
+        for t in rows
+        if t["status"] == "APPROVED" and t.get("kind", "template") == "template"
+    }
+    services = {t["id"] for t in rows if t.get("kind") == "service"}
+    errors = validate(parsed, approved, services)
     if errors:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, errors)
 

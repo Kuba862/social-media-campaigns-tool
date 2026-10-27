@@ -216,3 +216,21 @@ def test_delete_version_keeps_history_and_resets_the_status(
     journey = client.get(f"/journeys/{journey_id}").json()
     assert journey["status"] == "draft" and journey["versions"] == []
     assert client.delete(f"/journeys/{journey_id}/versions/{version_id}").status_code == 404
+
+
+def test_publish_checks_that_send_text_points_at_a_service_message(
+    client: TestClient, db: FakeDb
+) -> None:
+    db.rows("templates").append({"id": "svc-1", "kind": "service", "status": "READY"})
+    nodes = [
+        {"id": "start", "type": "start"},
+        {"id": "t", "type": "send_text", "message_id": "svc-1"},
+        {"id": "end", "type": "end"},
+    ]
+    edges = [{"from": "start", "to": "t"}, {"from": "t", "to": "end"}]
+    journey_id = client.post("/journeys", json={"name": "thanks"}).json()["id"]
+    body = {"schema_version": 1, "nodes": nodes, "edges": edges}
+    assert client.post(f"/journeys/{journey_id}/versions", json=body).status_code == 201
+    wrong = {**body, "nodes": [nodes[0], {**nodes[1], "message_id": "tpl-1"}, nodes[2]]}
+    refused = client.post(f"/journeys/{journey_id}/versions", json=wrong)
+    assert refused.status_code == 422 and "service message tpl-1 not found" in refused.text

@@ -7,6 +7,7 @@ from core.journey_schema import (
     EndNode,
     JourneyDefinition,
     SendTemplateNode,
+    SendTextNode,
     WaitForReplyNode,
 )
 
@@ -24,7 +25,12 @@ def successors(defn: JourneyDefinition) -> dict[str, list[str]]:
     return succ
 
 
-def validate(defn: JourneyDefinition, approved_template_ids: set[str]) -> list[str]:
+def validate(
+    defn: JourneyDefinition,
+    approved_template_ids: set[str],
+    service_message_ids: set[str] | None = None,
+) -> list[str]:
+    """Graph rules; `service_message_ids`, when given, must contain every send_text.message_id."""
     errors: list[str] = []
     ids = [n.id for n in defn.nodes]
     if len(ids) != len(set(ids)):
@@ -49,6 +55,14 @@ def validate(defn: JourneyDefinition, approved_template_ids: set[str]) -> list[s
         for n in defn.nodes
         if isinstance(n, SendTemplateNode) and n.template_id not in approved_template_ids
     ]
+    if service_message_ids is not None:
+        errors += [
+            f"{n.id}: service message {n.message_id} not found"
+            for n in defn.nodes
+            if isinstance(n, SendTextNode)
+            and n.message_id
+            and n.message_id not in service_message_ids
+        ]
 
     if len(starts) == 1:
         unreachable = known - _reachable(starts[0], succ)
