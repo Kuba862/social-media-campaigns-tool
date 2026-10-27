@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.auth import AuthUser, current_user
-from api.deps import get_db, get_meta
+from api.deps import get_db, get_meta, get_meta_or_none
 from api.main import app
 from meta_client import (
     MetaPermanentError,
@@ -114,3 +114,22 @@ def test_meta_not_configured_is_503(client: TestClient) -> None:
     del app.dependency_overrides[get_meta]  # real dependency; no META_SYSTEM_USER_TOKEN in env
     response = client.post(f"/templates/{template_id}/submit")
     assert response.status_code == 503 and "not configured" in response.json()["detail"]
+
+
+def test_delete_draft_needs_no_meta_and_removes_the_row(client: TestClient, db: FakeDb) -> None:
+    template_id = client.post("/templates", json=DRAFT).json()["id"]
+    assert client.delete(f"/templates/{template_id}").status_code == 204
+    assert db.rows("templates") == []
+    assert client.delete(f"/templates/{template_id}").status_code == 404
+
+
+def test_delete_submitted_template_deletes_it_at_meta_first(
+    client: TestClient, db: FakeDb, meta: FakeMeta
+) -> None:
+    template_id = client.post("/templates", json=DRAFT).json()["id"]
+    client.post(f"/templates/{template_id}/submit")
+    unconfigured = client.delete(f"/templates/{template_id}")
+    assert unconfigured.status_code == 503  # Meta knows the template, so Meta must be reachable
+    app.dependency_overrides[get_meta_or_none] = lambda: meta
+    assert client.delete(f"/templates/{template_id}").status_code == 204
+    assert meta.deleted == [("welcome_offer", "m-1")] and db.rows("templates") == []

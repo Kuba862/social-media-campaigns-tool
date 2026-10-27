@@ -66,7 +66,11 @@ async def send_test(request: TestSendRequest, db: Db, meta: Meta, settings: AppS
         if isinstance(exc, MetaPermanentError):
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
-    return await db.update("messages", message["id"], {"wamid": result.wamid, "status": "sent"})
+    return await db.update(
+        "messages",
+        message["id"],
+        {"wamid": result.wamid, "status": "sent", "meta_response": result.raw},
+    )
 
 
 async def _approved_template(db: Database, template_id: str) -> Row:

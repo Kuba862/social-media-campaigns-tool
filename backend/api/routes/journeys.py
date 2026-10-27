@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, Self
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from api.auth import current_user
@@ -137,6 +137,22 @@ async def publish_version(
     )
     await db.update("journeys", journey_id, {"status": "active"})
     return row
+
+
+@router.delete("/{journey_id}/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_version(journey_id: str, version_id: str, db: Db) -> Response:
+    """Drafts and unused published versions can go; a version with runs is history and stays.
+    When the last published version goes, the journey is a draft again."""
+    await _journey(db, journey_id)
+    versions = await _versions(db, journey_id)
+    if not any(v["id"] == version_id for v in versions):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "version not found")
+    if await db.select("journey_runs", journey_version_id=f"eq.{version_id}"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "version has runs and cannot be deleted")
+    await db.delete("journey_versions", version_id)
+    if not any(v.get("published_at") for v in versions if v["id"] != version_id):
+        await db.update("journeys", journey_id, {"status": "draft"})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{journey_id}/runs", status_code=status.HTTP_201_CREATED)

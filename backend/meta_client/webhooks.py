@@ -4,6 +4,8 @@ import hashlib
 import hmac
 from typing import Any, Literal, get_args
 
+from pydantic import Field
+
 from meta_client.models import Frozen, TemplateStatus
 
 MessageStatus = Literal["sent", "delivered", "read", "failed"]
@@ -36,6 +38,7 @@ class MessageStatusEvent(Frozen):
     recipient_phone: str
     occurred_at: int  # unix seconds, as Meta sends it
     error: dict[str, Any] | None
+    raw: dict[str, Any] = Field(default_factory=dict)  # the status object as Meta sent it
 
 
 class InboundMessageEvent(Frozen):
@@ -92,6 +95,7 @@ def _message_status(status: dict[str, Any]) -> MessageStatusEvent:
         recipient_phone=_e164(status.get("recipient_id", "")),
         occurred_at=int(status["timestamp"]),
         error=errors[0] if errors else None,
+        raw=status,
     )
 
 

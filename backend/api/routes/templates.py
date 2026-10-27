@@ -1,10 +1,10 @@
 """Templates: drafts live in our table, submit sends them to Meta, sync pulls Meta's verdict."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from api.auth import current_user
 from api.db import Row
-from api.deps import AppSettings, Db, Meta
+from api.deps import AppSettings, Db, Meta, OptionalMeta
 from meta_client import MetaPermanentError, MetaTransientError, TemplateSpec
 
 router = APIRouter(prefix="/templates", tags=["templates"], dependencies=[Depends(current_user)])
@@ -65,6 +65,27 @@ async def sync_template(template_id: str, db: Db, meta: Meta) -> Row:
         "rejection_reason": state.rejection_reason,
     }
     return await db.update("templates", template_id, changes)
+
+
+@router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template(template_id: str, db: Db, meta: OptionalMeta) -> Response:
+    """Removes the row; a template Meta knows is deleted there first (its name is then blocked
+    for 30 days). Messages sent with it keep their log rows with template_id set to null."""
+    row = await _get(db, template_id)
+    if row.get("meta_template_id") and row["status"] != "DELETED":
+        if meta is None:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "Meta is not configured (META_SYSTEM_USER_TOKEN)",
+            )
+        try:
+            await meta.delete_template(row["name"], row["meta_template_id"])
+        except MetaPermanentError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+        except MetaTransientError as exc:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    await db.delete("templates", template_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 async def _get(db: Db, template_id: str) -> Row:

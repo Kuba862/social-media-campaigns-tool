@@ -118,6 +118,7 @@ def test_message_statuses_are_stored_once_and_update_the_message(
         ("wamid.OUT2", "failed", None),
     ]
     assert events[1]["occurred_at"] == "2025-06-18T16:23:00+00:00"
+    assert events[0]["payload"]["status"] == "delivered" and "timestamp" in events[0]["payload"]
     assert db.rows("messages")[0]["status"] == "delivered"
 
 

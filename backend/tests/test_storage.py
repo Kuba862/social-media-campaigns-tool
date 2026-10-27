@@ -103,3 +103,13 @@ async def test_errors_map_to_classes_and_transience() -> None:
     with pytest.raises(StorageUnavailable) as gone:
         await client.select("templates")
     assert gone.value.transient
+
+
+@pytest.mark.anyio
+async def test_delete_filters_by_id_and_reports_a_missing_row() -> None:
+    fake = FakePostgrest(body=[{"id": "t-1"}])
+    await fake.client().delete("templates", "t-1")
+    request = fake.request()
+    assert request.method == "DELETE" and dict(request.url.params) == {"id": "eq.t-1"}
+    with pytest.raises(NotFoundError):
+        await FakePostgrest(body=[]).client().delete("templates", "t-2")

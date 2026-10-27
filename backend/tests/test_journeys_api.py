@@ -202,3 +202,17 @@ def test_publish_validates_the_draft_and_keeps_its_number(
     versions = client.get(f"/journeys/{journey_id}").json()["versions"]
     assert [(v["version"], v["published_at"] is None) for v in versions] == [(1, False), (2, False)]
     assert client.post(f"/journeys/{journey_id}/publish").status_code == 404  # consumed
+
+
+def test_delete_version_keeps_history_and_resets_the_status(
+    client: TestClient, db: FakeDb, guide_example_json: dict[str, Any]
+) -> None:
+    journey_id = published(client, guide_example_json)
+    version_id = client.get(f"/journeys/{journey_id}").json()["versions"][0]["id"]
+    db.rows("journey_runs").append({"id": "r-1", "journey_version_id": version_id})
+    assert client.delete(f"/journeys/{journey_id}/versions/{version_id}").status_code == 409
+    db.rows("journey_runs").clear()
+    assert client.delete(f"/journeys/{journey_id}/versions/{version_id}").status_code == 204
+    journey = client.get(f"/journeys/{journey_id}").json()
+    assert journey["status"] == "draft" and journey["versions"] == []
+    assert client.delete(f"/journeys/{journey_id}/versions/{version_id}").status_code == 404

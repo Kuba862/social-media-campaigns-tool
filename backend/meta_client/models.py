@@ -1,7 +1,7 @@
 """Our side of the boundary: what the rest of the system asks for and gets back."""
 
 import re
-from typing import Literal, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -62,3 +62,4 @@ class TemplateState(Frozen):
 class SendResult(Frozen):
     wamid: str
     status: str  # Meta answers "accepted"; delivery comes later through webhooks
+    raw: dict[str, Any] = Field(default_factory=dict)  # Meta's whole response, kept for the log
