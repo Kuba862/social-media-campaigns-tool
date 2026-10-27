@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureTestUser, signIn } from "./helpers";
+import { createDraft, ensureTestUser, signIn } from "./helpers";
 
 test.beforeAll(async ({ playwright }) => {
   const api = await playwright.request.newContext();
@@ -11,13 +11,10 @@ test("draft is saved and submit reports Meta is not configured", async ({ page }
   await signIn(page);
   await page.getByRole("navigation").getByRole("link", { name: "Templates" }).click();
   await expect(page.getByRole("heading", { name: "Templates" })).toBeVisible();
+  await page.getByRole("link", { name: "New message" }).click();
+  await expect(page.getByRole("heading", { name: "New message" })).toBeVisible();
 
-  const name = `e2e_${Date.now()}`;
-  await page.getByLabel("Name", { exact: true }).fill(name);
-  await page.getByLabel("Body", { exact: true }).fill("Cześć {{1}}!");
-  await page.getByLabel("Example values").fill("Ala");
-  await page.getByRole("button", { name: "Save draft" }).click();
-
+  const name = await createDraft(page);
   const row = page.getByRole("row").filter({ hasText: name });
   await expect(row).toContainText("DRAFT");
   await row.getByRole("button", { name: "Submit" }).click();

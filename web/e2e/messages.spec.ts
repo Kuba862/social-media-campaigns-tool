@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { approveTemplate, ensureTestUser, signIn } from "./helpers";
+import { approveTemplate, createDraft, ensureTestUser, signIn } from "./helpers";
 
 test.beforeAll(async ({ playwright }) => {
   const api = await playwright.request.newContext();
@@ -12,12 +12,7 @@ test("approved template offers a test send and the log page renders", async ({
   playwright,
 }) => {
   await signIn(page);
-  await page.goto("/templates");
-  const name = `e2e_${Date.now()}`;
-  await page.getByLabel("Name", { exact: true }).fill(name);
-  await page.getByLabel("Body", { exact: true }).fill("Cześć {{1}}!");
-  await page.getByLabel("Example values").fill("Ala");
-  await page.getByRole("button", { name: "Save draft" }).click();
+  const name = await createDraft(page);
   const row = page.getByRole("row").filter({ hasText: name });
   await expect(row).toContainText("DRAFT");
   await expect(row.getByRole("button", { name: "Send test" })).toHaveCount(0);

@@ -32,3 +32,15 @@ export async function perform<T>(
   revalidatePath(target);
   redirect(target);
 }
+
+/** One API call whose failure the caller shows in place (a 401 still goes to the login page). */
+export async function attempt<T>(
+  call: () => Promise<T>,
+): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
+  try {
+    return { ok: true, result: await call() };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect("/login");
+    return { ok: false, error: error instanceof ApiError ? error.message : "unexpected error" };
+  }
+}

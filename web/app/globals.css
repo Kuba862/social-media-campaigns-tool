@@ -308,6 +308,167 @@ ul {
   margin: 0 0 var(--space-2);
 }
 
+/* ---- the message creator ----------------------------------------------------------------- */
+.creator {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.stepper {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  font-size: 0.86rem;
+  color: var(--text-3);
+}
+.stepper li::before {
+  counter-increment: step;
+  content: counter(step);
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  font-weight: 600;
+}
+.stepper li[aria-current="step"] {
+  color: var(--text);
+  font-weight: 600;
+}
+.stepper li[aria-current="step"]::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.type-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.type-tile {
+  height: auto;
+  padding: var(--space-4);
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-l);
+  white-space: normal;
+}
+.type-tile:hover {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+}
+.type-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+.type-tile .icon {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+}
+.type-tile .icon svg {
+  width: 100%;
+  height: 100%;
+}
+.type-tile strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.type-tile .muted {
+  font-size: 0.86rem;
+  font-weight: 400;
+}
+form.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+}
+form.stack textarea,
+form.stack input:not([type="radio"]),
+form.stack select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+form.stack textarea {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+}
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: flex-end;
+}
+.field-row > label {
+  flex: 1 1 180px;
+}
+.field-row > label.inline,
+label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-right: var(--space-3);
+}
+form.stack label.inline input[type="radio"],
+label.inline input[type="radio"] {
+  appearance: auto;
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  flex: 0 0 16px;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  accent-color: var(--accent);
+}
+label.inline input[type="radio"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus);
+}
+.hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 0.82rem;
+}
+.rules h2 {
+  margin: 0 0 var(--space-3);
+  font-size: 1rem;
+}
+.rules ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  display: grid;
+  gap: var(--space-2);
+}
+.rules code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+}
+@media (max-width: 900px) {
+  .creator {
+    grid-template-columns: 1fr;
+  }
+  .type-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- row actions and expandable log rows -------------------------------------------------- */
 .row-actions {
   display: flex;
@@ -511,6 +672,7 @@ tr.detail pre {
 .badge[data-status="published"],
 .badge[data-status="active"],
 .badge[data-status="APPROVED"],
+.badge[data-status="READY"],
 .badge[data-status="delivered"],
 .badge[data-status="read"],
 .badge[data-status="yes"] {

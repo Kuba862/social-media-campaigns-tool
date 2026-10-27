@@ -2,16 +2,7 @@
 
 import { perform } from "@/lib/actions";
 import { apiFetch } from "@/lib/api";
-import { specFromForm } from "@/lib/templates";
 import { testSendFromForm } from "@/lib/messages";
-
-export async function createTemplate(form: FormData) {
-  await perform(
-    () => apiFetch("/templates", { method: "POST", body: specFromForm(form) }),
-    "/templates",
-    "/templates",
-  );
-}
 
 export async function submitTemplate(form: FormData) {
   const id = String(form.get("id") ?? "");

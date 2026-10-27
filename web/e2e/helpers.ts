@@ -44,15 +44,22 @@ export async function approveTemplate(api: APIRequestContext, name: string): Pro
   expect(hook.status()).toBe(200);
 }
 
-/** Creates a template draft in the panel and approves it; returns its name. */
-export async function approvedTemplate(page: Page, api: APIRequestContext): Promise<string> {
-  await page.goto("/templates");
-  const name = `e2e_${Date.now()}`;
+/** Creates a Meta template draft through the creator (type tile, name, body); returns its name. */
+export async function createDraft(page: Page, name = `e2e_${Date.now()}`): Promise<string> {
+  await page.goto("/templates/new");
+  await page.getByRole("button", { name: "Template", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill(name);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByLabel("Body", { exact: true }).fill("Cześć {{1}}!");
-  await page.getByLabel("Example values").fill("Ala");
+  await page.getByLabel("Example for {{1}}").fill("Ala");
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByRole("row").filter({ hasText: name })).toContainText("DRAFT");
+  return name;
+}
+
+/** Creates a template draft in the panel and approves it; returns its name. */
+export async function approvedTemplate(page: Page, api: APIRequestContext): Promise<string> {
+  const name = await createDraft(page);
   await approveTemplate(api, name);
   return name;
 }
