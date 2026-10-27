@@ -60,7 +60,11 @@ async def send_test(request: TestSendRequest, db: Db, meta: Meta, settings: AppS
     )
     try:
         result = await meta.send_template(
-            request.to_e164, template["name"], template["language"], request.body_values
+            request.to_e164,
+            template["name"],
+            template["language"],
+            request.body_values,
+            header_image_url=(template.get("components") or {}).get("header_image_url"),
         )
     except MetaError as exc:
         error = {"message": str(exc), "code": exc.code, "subcode": exc.subcode}

@@ -51,6 +51,7 @@ class TemplateSpec(Frozen):
     language: str = Field(pattern=r"^[a-z]{2}(_[A-Z]{2})?$")
     category: TemplateCategory
     header: str | None = Field(default=None, max_length=60)
+    header_image_url: str | None = Field(default=None, max_length=2000, pattern=r"^https://")
     body: str = Field(min_length=1, max_length=1024)
     footer: str | None = Field(default=None, max_length=60)
     buttons: list[Button] = Field(default_factory=list, max_length=5)
@@ -103,6 +104,8 @@ class TemplateSpec(Frozen):
             raise ValueError("two variables must be separated by text")
         if self.header and PLACEHOLDER.search(self.header):
             raise ValueError("the header cannot contain variables")
+        if self.header and self.header_image_url:
+            raise ValueError("a header is either text or an image, not both")
         if len(self.all_buttons) > 5:
             raise ValueError("at most 5 buttons")
         if sum(1 for button in self.all_buttons if button.type == "url") > 2:

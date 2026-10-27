@@ -27,15 +27,20 @@ class MetaClient:
         waba_id: str,
         phone_number_id: str,
         access_token: str,
+        app_id: str = "",  # only the Resumable Upload API (image header samples) needs it
     ) -> None:
         self._http = http
         self._base = f"https://graph.facebook.com/{graph_version}"
         self._waba_id = waba_id
         self._phone_number_id = phone_number_id
+        self._app_id = app_id
+        self._token = access_token
         self._headers = {"Authorization": f"Bearer {access_token}"}
 
-    async def create_template(self, spec: TemplateSpec) -> CreatedTemplate:
-        payload = template_create_payload(spec)
+    async def create_template(
+        self, spec: TemplateSpec, header_handle: str | None = None
+    ) -> CreatedTemplate:
+        payload = template_create_payload(spec, header_handle)
         data = await self._post(f"/{self._waba_id}/message_templates", payload)
         return parse_created_template(data)
 
@@ -55,10 +60,41 @@ class MetaClient:
             params["hsm_id"] = meta_template_id
         await self._request("DELETE", f"/{self._waba_id}/message_templates", params=params)
 
+    async def upload_sample(self, data: bytes, mime: str, file_name: str) -> str:
+        """Resumable Upload API: open a session on the app, send the bytes, get the handle that
+        a template's image header example refers to."""
+        if not self._app_id:
+            raise MetaPermanentError("META_APP_ID is not configured")
+        session = await self._request(
+            "POST",
+            f"/{self._app_id}/uploads",
+            params={"file_name": file_name, "file_length": str(len(data)), "file_type": mime},
+        )
+        headers = {
+            "Authorization": f"OAuth {self._token}",
+            "file_offset": "0",
+            "Content-Type": mime,
+        }
+        try:
+            response = await self._http.post(
+                f"{self._base}/{session['id']}", content=data, headers=headers
+            )
+        except httpx.HTTPError as exc:
+            raise MetaTransientError(f"network error calling Meta: {exc}") from exc
+        if not response.is_success:
+            raise _error_from(response)
+        handle: str = response.json()["h"]
+        return handle
+
     async def send_template(
-        self, to_e164: str, template_name: str, language: str, body_values: list[str]
+        self,
+        to_e164: str,
+        template_name: str,
+        language: str,
+        body_values: list[str],
+        header_image_url: str | None = None,
     ) -> SendResult:
-        payload = message_payload(to_e164, template_name, language, body_values)
+        payload = message_payload(to_e164, template_name, language, body_values, header_image_url)
         data = await self._post(f"/{self._phone_number_id}/messages", payload)
         return parse_send_result(data)
 

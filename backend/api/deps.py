@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+import httpx
 from fastapi import Depends, HTTPException, Request, status
 
 from api.db import Database
@@ -21,6 +22,12 @@ def get_db(request: Request) -> Database:
     return db
 
 
+def get_http(request: Request) -> httpx.AsyncClient:
+    """The shared outbound HTTP client, for fetching what a user points the API at."""
+    http: httpx.AsyncClient = request.app.state.http
+    return http
+
+
 def get_meta(request: Request) -> MetaClient:
     meta: MetaClient | None = request.app.state.meta
     if meta is None:
@@ -37,6 +44,7 @@ def get_meta_or_none(request: Request) -> MetaClient | None:
 
 AppSettings = Annotated[Settings, Depends(get_settings)]
 Db = Annotated[Database, Depends(get_db)]
+Http = Annotated[httpx.AsyncClient, Depends(get_http)]
 Meta = Annotated[MetaClient, Depends(get_meta)]
 OptionalMeta = Annotated[MetaClient | None, Depends(get_meta_or_none)]
 

@@ -15,6 +15,7 @@ class Settings:
     meta_waba_id: str
     meta_phone_number_id: str
     meta_system_user_token: str  # empty: Meta calls answer 503, drafts still work
+    meta_app_id: str  # the Meta app; only image header samples (Resumable Upload API) need it
     meta_app_secret: str
     meta_webhook_verify_token: str
     wa_send_mode: str  # "test" or "live"; the PoC never sets live
@@ -34,6 +35,7 @@ def load_settings() -> Settings:
         meta_waba_id=os.environ.get("META_WABA_ID", "local-waba"),
         meta_phone_number_id=os.environ.get("META_PHONE_NUMBER_ID", "local-phone"),
         meta_system_user_token=os.environ.get("META_SYSTEM_USER_TOKEN", ""),
+        meta_app_id=os.environ.get("META_APP_ID", ""),
         meta_app_secret=os.environ.get("META_APP_SECRET", ""),
         meta_webhook_verify_token=os.environ.get("META_WEBHOOK_VERIFY_TOKEN", ""),
         wa_send_mode=send_mode,

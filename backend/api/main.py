@@ -34,6 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             waba_id=settings.meta_waba_id,
             phone_number_id=settings.meta_phone_number_id,
             access_token=settings.meta_system_user_token,
+            app_id=settings.meta_app_id,
         )
         if settings.meta_system_user_token
         else None

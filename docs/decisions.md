@@ -793,6 +793,21 @@ Konsekwencje: nagłówek graficzny wymaga wgrania próbki przez Resumable Upload
 zmiennej `META_APP_ID` (krok 11d); edytor journey nadal mapuje zmienne po numerach, nazwy
 podpisze w kroku 11h.
 
+### 48. Nagłówek graficzny szablonu: próbka przez Resumable Upload API, obraz z adresu przy wysyłce (2026-10-27)
+
+Decyzja: szablon może mieć `header_image_url` (https, zamiast nagłówka tekstowego). Przy
+zgłoszeniu API pobiera obraz (JPEG lub PNG, do 5 MB, z przekierowaniami), wgrywa go do Mety
+przez Resumable Upload API (`POST /{app_id}/uploads`, potem bajty pod zwrócony identyfikator
+sesji z nagłówkiem `OAuth`) i podaje uchwyt w komponencie `HEADER` o formacie `IMAGE`. Przy
+wysyłce szablon dostaje komponent `header` z `image.link` równym temu adresowi, więc obraz musi
+być publicznie dostępny także później. Nowa zmienna `META_APP_ID` (App settings → Basic) jest
+potrzebna tylko w API; bez niej zgłoszenie szablonu z obrazem odpowiada błędem, a reszta działa.
+Powód: Meta nie przyjmuje adresu URL jako przykładu nagłówka, tylko uchwyt wgranej próbki;
+pobieranie po stronie API oszczędza panelowi wysyłania plików. Konsekwencje: adres podaje
+zalogowany użytkownik, a API go odwiedza (ograniczenie do https, typów obrazów i 5 MB);
+próbkę Meta kasuje po ocenie, więc nie jest przechowywana; wideo i dokumenty w nagłówku to ta
+sama ścieżka z innymi typami, na później.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
