@@ -69,4 +69,4 @@ def parse_template_state(item: dict[str, Any]) -> TemplateState:
 def parse_send_result(data: dict[str, Any]) -> SendResult:
     message = data["messages"][0]
     status = str(message.get("message_status", "accepted"))
-    return SendResult(wamid=str(message["id"]), status=status)
+    return SendResult(wamid=str(message["id"]), status=status, raw=data)

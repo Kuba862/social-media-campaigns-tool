@@ -57,6 +57,7 @@ async def test_send_template_inserts_then_sends_once() -> None:
         "sent",
         "wamid.T1",
     )
+    assert row["meta_response"] == {"messages": [{"id": "wamid.T1"}]}
     assert len(db.rows("messages")) == 1
 
 

@@ -170,7 +170,9 @@ class JourneyActivities:
             return await self._fail(message["id"], str(exc), code=exc.code)
         # MetaTransientError propagates: Temporal retries the activity with backoff.
         updated = await self._db.update(
-            "messages", message["id"], {"wamid": result.wamid, "status": "sent"}
+            "messages",
+            message["id"],
+            {"wamid": result.wamid, "status": "sent", "meta_response": result.raw},
         )
         return SendTemplateResult(updated["id"], "sent", wamid=result.wamid)
 
@@ -218,7 +220,9 @@ class JourneyActivities:
                 return await self._window_closed(message["id"], request.if_closed)
             return await self._fail(message["id"], str(exc), code=exc.code)
         updated = await self._db.update(
-            "messages", message["id"], {"wamid": result.wamid, "status": "sent"}
+            "messages",
+            message["id"],
+            {"wamid": result.wamid, "status": "sent", "meta_response": result.raw},
         )
         return SendTemplateResult(updated["id"], "sent", wamid=result.wamid)
 

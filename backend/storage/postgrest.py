@@ -15,6 +15,7 @@ class Storage(Protocol):
     async def update(self, table: str, row_id: str, changes: Row) -> Row: ...
     async def insert_ignore(self, table: str, row: Row, on_conflict: str) -> Row | None: ...
     async def upsert(self, table: str, row: Row, on_conflict: str) -> Row: ...
+    async def delete(self, table: str, row_id: str) -> None: ...
 
 
 class StorageError(Exception):
@@ -93,6 +94,11 @@ class PostgrestClient:
             prefer="resolution=merge-duplicates,return=representation",
         )
         return rows[0]
+
+    async def delete(self, table: str, row_id: str) -> None:
+        rows = await self._rows("DELETE", table, params={"id": f"eq.{row_id}"})
+        if not rows:
+            raise NotFoundError(f"{table} row not found")
 
     async def _rows(
         self,

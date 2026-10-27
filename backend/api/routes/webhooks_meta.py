@@ -96,7 +96,7 @@ async def _store_message_status(
             "message_id": message["id"] if message else None,
             "wamid": event.wamid,
             "type": event.status,
-            "payload": event.model_dump(),
+            "payload": event.raw,  # the status object as Meta sent it, for the log's detail view
             "occurred_at": _iso(event.occurred_at),
         },
         on_conflict="wamid,type",

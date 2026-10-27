@@ -30,9 +30,15 @@ def get_meta(request: Request) -> MetaClient:
     return meta
 
 
+def get_meta_or_none(request: Request) -> MetaClient | None:
+    meta: MetaClient | None = request.app.state.meta
+    return meta
+
+
 AppSettings = Annotated[Settings, Depends(get_settings)]
 Db = Annotated[Database, Depends(get_db)]
 Meta = Annotated[MetaClient, Depends(get_meta)]
+OptionalMeta = Annotated[MetaClient | None, Depends(get_meta_or_none)]
 
 
 def get_runs(db: Db) -> AllRuns:

@@ -48,6 +48,13 @@ class MetaClient:
         items = [item for item in data.get("data", []) if item.get("language") == language]
         return parse_template_state(items[0]) if items else None
 
+    async def delete_template(self, name: str, meta_template_id: str | None = None) -> None:
+        """Deletes one language version when the id is known, else every version of the name."""
+        params = {"name": name}
+        if meta_template_id:
+            params["hsm_id"] = meta_template_id
+        await self._request("DELETE", f"/{self._waba_id}/message_templates", params=params)
+
     async def send_template(
         self, to_e164: str, template_name: str, language: str, body_values: list[str]
     ) -> SendResult:

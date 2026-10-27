@@ -89,6 +89,14 @@ class FakeDb:
             return existing
         return self._store(table, row)
 
+    async def delete(self, table: str, row_id: str) -> None:
+        rows = self.rows(table)
+        for index, row in enumerate(rows):
+            if row["id"] == row_id:
+                del rows[index]
+                return
+        raise NotFoundError(f"{table} row not found")
+
     def _find(self, table: str, row: Row, on_conflict: str) -> Row | None:
         keys = on_conflict.split(",")
         for existing in self.rows(table):
@@ -112,6 +120,7 @@ class FakeMeta:
         self.transient_failures = 0  # how many send attempts fail with a transient error first
         self.state: TemplateState | None = TemplateState(meta_template_id="m-1", status="APPROVED")
         self.created: list[TemplateSpec] = []
+        self.deleted: list[tuple[str, str | None]] = []
         self.sent: list[tuple[str, str, str, list[str]]] = []
         self.sent_texts: list[tuple[str, str]] = []
 
@@ -133,7 +142,11 @@ class FakeMeta:
         if self.send_error is not None:
             raise self.send_error
         self.sent.append((to_e164, template_name, language, body_values))
-        return SendResult(wamid=f"wamid.T{len(self.sent)}", status="accepted")
+        wamid = f"wamid.T{len(self.sent)}"
+        return SendResult(wamid=wamid, status="accepted", raw={"messages": [{"id": wamid}]})
+
+    async def delete_template(self, name: str, meta_template_id: str | None = None) -> None:
+        self.deleted.append((name, meta_template_id))
 
     async def send_text(self, to_e164: str, text: str) -> SendResult:
         if self.transient_failures > 0:
@@ -142,7 +155,8 @@ class FakeMeta:
         if self.send_error is not None:
             raise self.send_error
         self.sent_texts.append((to_e164, text))
-        return SendResult(wamid=f"wamid.X{len(self.sent_texts)}", status="accepted")
+        wamid = f"wamid.X{len(self.sent_texts)}"
+        return SendResult(wamid=wamid, status="accepted", raw={"messages": [{"id": wamid}]})
 
 
 class FakeTemporal:

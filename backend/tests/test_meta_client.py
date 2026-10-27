@@ -166,3 +166,19 @@ async def test_send_text_posts_to_phone_number_and_returns_wamid() -> None:
     assert meta.last is not None and meta.last.url.path == "/v24.0/PHONE1/messages"
     assert meta.sent_json()["type"] == "text"
     assert result.wamid.startswith("wamid.")
+
+
+@pytest.mark.anyio
+async def test_delete_template_sends_name_and_hsm_id() -> None:
+    meta = FakeMeta(body={"success": True})
+    await meta.client().delete_template("welcome_offer", "m-1")
+    assert meta.last is not None and meta.last.method == "DELETE"
+    assert meta.last.url.path == "/v24.0/WABA1/message_templates"
+    assert dict(meta.last.url.params) == {"name": "welcome_offer", "hsm_id": "m-1"}
+
+
+@pytest.mark.anyio
+async def test_send_result_keeps_metas_whole_response() -> None:
+    meta = FakeMeta(body=fixture("message_send.json"))
+    result = await meta.client().send_template("+48600000001", "welcome_offer", "pl", ["Ala"])
+    assert result.raw == fixture("message_send.json")

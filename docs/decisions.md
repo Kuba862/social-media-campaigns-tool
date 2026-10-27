@@ -756,6 +756,22 @@ liczenie w panelu z list z API wystarcza. Konsekwencje: przy dużej liczbie wiad
 i przebiegów strona główna będzie pobierać całe listy; wtedy agregacja przechodzi do API
 (np. widok lub funkcja SQL) bez zmiany komponentów.
 
+### 46. Usuwanie szablonów i wersji journey; surowe odpowiedzi Mety w logu (2026-10-27)
+
+Decyzja: `DELETE /templates/{id}` usuwa wiersz; szablon znany Mecie (ma `meta_template_id`
+i nie jest `DELETED`) jest najpierw usuwany u Mety przez `DELETE /{waba}/message_templates`
+z `name` i `hsm_id`, a bez skonfigurowanej Mety trasa odpowiada 503. Wiadomości wysłane tym
+szablonem zostają w logu z pustym `template_id` (klucz obcy `on delete set null`).
+`DELETE /journeys/{id}/versions/{vid}` usuwa szkic lub nieużywaną wersję; wersja z przebiegami
+to historia i zostaje (409); gdy znika ostatnia opublikowana wersja, journey wraca do `draft`.
+`messages.meta_response` przechowuje całą odpowiedź Mety na wysyłkę (test send, aktywności
+workera), a `message_events.payload` zamiast sparsowanego zdarzenia trzyma obiekt statusu
+dokładnie tak, jak przysłała go Meta. Klient PostgREST i jego atrapa dostały `delete`.
+Powód: właściciel chce sprzątać szablony testowe i wersje z panelu oraz widzieć w logu pełny
+JSON od Mety przy każdej wiadomości. Konsekwencje: nazwa usuniętego zatwierdzonego szablonu
+jest u Mety zablokowana na 30 dni; opublikowana journey, która wskazuje usunięty szablon,
+zawiedzie dopiero przy wysyłce (edytor pokaże brak zatwierdzonego szablonu przy publikacji).
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
