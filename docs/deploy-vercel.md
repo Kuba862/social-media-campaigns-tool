@@ -52,6 +52,7 @@ i w Supabase; nigdy do repo ani do czatu.
    | `WA_SEND_MODE` | `test` |
    | `WA_ALLOWED_TEST_RECIPIENTS` | numery testowe E.164 po przecinku, np. `+48600000001` |
    | `META_GRAPH_VERSION`, `META_WABA_ID`, `META_PHONE_NUMBER_ID`, `META_SYSTEM_USER_TOKEN`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | dopiero gdy będzie konto Meta; bez nich API działa w trybie szkiców |
+   | `META_APP_ID` | id aplikacji Meta (App settings → Basic); potrzebne tylko do szablonów z nagłówkiem graficznym |
 
 4. **Deploy**. Po zbudowaniu sprawdź `https://<projekt-api>.vercel.app/healthz` →
    `{"status":"ok"}`. Zapisz ten adres: to `API_URL` panelu.

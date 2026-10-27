@@ -5,11 +5,18 @@ from typing import Any
 from meta_client.models import CreatedTemplate, SendResult, TemplateSpec, TemplateState
 
 
-def template_create_payload(spec: TemplateSpec) -> dict[str, Any]:
-    """Meta's components in their order: HEADER, BODY (positional variables), FOOTER, BUTTONS."""
+def template_create_payload(spec: TemplateSpec, header_handle: str | None = None) -> dict[str, Any]:
+    """Meta's components in their order: HEADER, BODY (positional variables), FOOTER, BUTTONS.
+    An image header needs the handle of a sample uploaded through the Resumable Upload API."""
     components: list[dict[str, Any]] = []
     if spec.header:
         components.append({"type": "HEADER", "format": "TEXT", "text": spec.header})
+    elif spec.header_image_url:
+        if not header_handle:
+            raise ValueError("an image header needs the uploaded sample's handle")
+        components.append(
+            {"type": "HEADER", "format": "IMAGE", "example": {"header_handle": [header_handle]}}
+        )
     body: dict[str, Any] = {"type": "BODY", "text": spec.positional_body}
     if spec.example_values:
         body["example"] = {"body_text": [spec.example_values]}
@@ -34,13 +41,27 @@ def template_create_payload(spec: TemplateSpec) -> dict[str, Any]:
 
 
 def message_payload(
-    to_e164: str, template_name: str, language: str, body_values: list[str]
+    to_e164: str,
+    template_name: str,
+    language: str,
+    body_values: list[str],
+    header_image_url: str | None = None,
 ) -> dict[str, Any]:
     template: dict[str, Any] = {"name": template_name, "language": {"code": language}}
+    components: list[dict[str, Any]] = []
+    if header_image_url:
+        components.append(
+            {
+                "type": "header",
+                "parameters": [{"type": "image", "image": {"link": header_image_url}}],
+            }
+        )
     if body_values:
-        template["components"] = [
+        components.append(
             {"type": "body", "parameters": [{"type": "text", "text": v} for v in body_values]}
-        ]
+        )
+    if components:
+        template["components"] = components
     return {
         "messaging_product": "whatsapp",
         "to": to_e164.lstrip("+"),

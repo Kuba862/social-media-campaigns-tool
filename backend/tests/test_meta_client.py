@@ -229,3 +229,66 @@ def test_named_variables_become_positional_in_metas_component_order() -> None:
 def test_meta_template_rules(changes: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         TemplateSpec(**{**V2.model_dump(), **changes})
+
+
+IMAGE = TemplateSpec(
+    name="promo_1",
+    language="pl",
+    category="MARKETING",
+    header_image_url="https://cdn.example.org/promo.png",
+    body="Cześć {{first_name}}, zobacz naszą akcję.",
+    example_values=["Ala"],
+)
+
+
+def test_image_header_needs_a_handle_and_sends_link_first() -> None:
+    with pytest.raises(ValueError, match="handle"):
+        template_create_payload(IMAGE)
+    header = template_create_payload(IMAGE, header_handle="4::sample")["components"][0]
+    assert header == {
+        "type": "HEADER",
+        "format": "IMAGE",
+        "example": {"header_handle": ["4::sample"]},
+    }
+    components = message_payload(
+        "+48600000001", "promo_1", "pl", ["Ala"], header_image_url=IMAGE.header_image_url
+    )["template"]["components"]
+    assert components[0] == {
+        "type": "header",
+        "parameters": [{"type": "image", "image": {"link": IMAGE.header_image_url}}],
+    }
+    assert components[1]["type"] == "body"
+    with pytest.raises(ValueError, match="text or an image"):
+        TemplateSpec(**{**IMAGE.model_dump(), "header": "Hej"})
+
+
+@pytest.mark.anyio
+async def test_upload_sample_opens_a_session_then_sends_the_bytes() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/APP1/uploads"):
+            return httpx.Response(200, json={"id": "upload:SESSION1"})
+        assert request.url.path.endswith("/upload:SESSION1")
+        assert request.headers["file_offset"] == "0"
+        assert request.headers["Authorization"] == "OAuth test-token"
+        assert request.content == b"PNGDATA"
+        return httpx.Response(200, json={"h": "4::sample"})
+
+    client = MetaClient(
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        graph_version="v24.0",
+        waba_id="WABA1",
+        phone_number_id="PHONE1",
+        access_token="test-token",
+        app_id="APP1",
+    )
+    assert await client.upload_sample(b"PNGDATA", "image/png", "promo.png") == "4::sample"
+    assert dict(seen[0].url.params) == {
+        "file_name": "promo.png",
+        "file_length": "7",
+        "file_type": "image/png",
+    }
+    with pytest.raises(MetaPermanentError, match="META_APP_ID"):
+        await FakeMeta().client().upload_sample(b"x", "image/png", "x.png")

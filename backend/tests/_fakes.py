@@ -120,21 +120,36 @@ class FakeMeta:
         self.transient_failures = 0  # how many send attempts fail with a transient error first
         self.state: TemplateState | None = TemplateState(meta_template_id="m-1", status="APPROVED")
         self.created: list[TemplateSpec] = []
+        self.created_handles: list[str | None] = []
+        self.uploads: list[tuple[str, int]] = []  # (mime, size) of samples sent for image headers
         self.deleted: list[tuple[str, str | None]] = []
+        self.sent_headers: list[str | None] = []  # header image url of each template send
         self.sent: list[tuple[str, str, str, list[str]]] = []
         self.sent_texts: list[tuple[str, str]] = []
 
-    async def create_template(self, spec: TemplateSpec) -> CreatedTemplate:
+    async def create_template(
+        self, spec: TemplateSpec, header_handle: str | None = None
+    ) -> CreatedTemplate:
         if self.create_error is not None:
             raise self.create_error
         self.created.append(spec)
+        self.created_handles.append(header_handle)
         return CreatedTemplate(meta_template_id="m-1", status="PENDING")
+
+    async def upload_sample(self, data: bytes, mime: str, file_name: str) -> str:
+        self.uploads.append((mime, len(data)))
+        return "4::sample-handle"
 
     async def get_template_state(self, name: str, language: str) -> TemplateState | None:
         return self.state
 
     async def send_template(
-        self, to_e164: str, template_name: str, language: str, body_values: list[str]
+        self,
+        to_e164: str,
+        template_name: str,
+        language: str,
+        body_values: list[str],
+        header_image_url: str | None = None,
     ) -> SendResult:
         if self.transient_failures > 0:
             self.transient_failures -= 1
@@ -142,6 +157,7 @@ class FakeMeta:
         if self.send_error is not None:
             raise self.send_error
         self.sent.append((to_e164, template_name, language, body_values))
+        self.sent_headers.append(header_image_url)
         wamid = f"wamid.T{len(self.sent)}"
         return SendResult(wamid=wamid, status="accepted", raw={"messages": [{"id": wamid}]})
 

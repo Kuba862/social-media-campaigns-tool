@@ -3,11 +3,12 @@
 from collections.abc import Iterator
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from api.auth import AuthUser, current_user
-from api.deps import get_db, get_meta, get_meta_or_none
+from api.deps import get_db, get_http, get_meta, get_meta_or_none
 from api.main import app
 from meta_client import (
     MetaPermanentError,
@@ -62,6 +63,7 @@ def test_create_draft_then_list(client: TestClient) -> None:
     assert row["status"] == "DRAFT" and row["waba_id"] == "local-waba"
     assert row["components"] == {
         "header": None,
+        "header_image_url": None,
         "body": "Cześć {{1}}!",
         "footer": None,
         "example_values": ["Ala"],
@@ -187,3 +189,43 @@ def test_legacy_quick_replies_become_buttons_and_old_rows_still_submit(
     )
     assert client.post("/templates/old-1/submit").status_code == 200
     assert [b.text for b in meta.created[-1].all_buttons] == ["Ok"]
+
+
+IMAGE_DRAFT = {
+    "name": "promo_1",
+    "language": "pl",
+    "category": "MARKETING",
+    "header_image_url": "https://cdn.example.org/promo.png",
+    "body": "Cześć {{first_name}}, zobacz naszą akcję.",
+    "example_values": ["Ala"],
+}
+
+
+def fake_http(status: int, content_type: str, body: bytes) -> httpx.AsyncClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == IMAGE_DRAFT["header_image_url"]
+        return httpx.Response(status, content=body, headers={"content-type": content_type})
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def test_submit_uploads_the_header_image_sample_first(client: TestClient, meta: FakeMeta) -> None:
+    template_id = client.post("/templates", json=IMAGE_DRAFT).json()["id"]
+    app.dependency_overrides[get_http] = lambda: fake_http(200, "image/png", b"PNGDATA")
+    assert client.post(f"/templates/{template_id}/submit").status_code == 200
+    assert meta.uploads == [("image/png", 7)] and meta.created_handles == ["4::sample-handle"]
+
+
+def test_submit_refuses_a_header_image_that_is_not_a_small_jpeg_or_png(
+    client: TestClient, meta: FakeMeta
+) -> None:
+    template_id = client.post("/templates", json=IMAGE_DRAFT).json()["id"]
+    app.dependency_overrides[get_http] = lambda: fake_http(200, "text/html", b"<html>")
+    html = client.post(f"/templates/{template_id}/submit")
+    assert html.status_code == 422 and "JPEG or PNG" in html.json()["detail"]
+    app.dependency_overrides[get_http] = lambda: fake_http(
+        200, "image/jpeg", b"x" * (5 * 1024 * 1024 + 1)
+    )
+    big = client.post(f"/templates/{template_id}/submit")
+    assert big.status_code == 422 and "5 MB" in big.json()["detail"]
+    assert meta.uploads == [] and client.get("/templates").json()[0]["status"] == "DRAFT"

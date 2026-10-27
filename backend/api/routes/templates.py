@@ -1,13 +1,17 @@
 """Templates: drafts live in our table, submit sends them to Meta, sync pulls Meta's verdict."""
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from api.auth import current_user
 from api.db import Row
-from api.deps import AppSettings, Db, Meta, OptionalMeta
+from api.deps import AppSettings, Db, Http, Meta, OptionalMeta
 from meta_client import MetaPermanentError, MetaTransientError, TemplateSpec
 
 router = APIRouter(prefix="/templates", tags=["templates"], dependencies=[Depends(current_user)])
+
+IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # Meta's limit for image headers
 
 
 @router.get("")
@@ -31,9 +35,30 @@ async def create_template(spec: TemplateSpec, db: Db, settings: AppSettings) -> 
     )
 
 
+async def _download_image(http: httpx.AsyncClient, url: str) -> tuple[bytes, str]:
+    """The sample for Meta: a JPEG or PNG of at most 5 MB from an https address."""
+    try:
+        response = await http.get(url, follow_redirects=True, timeout=15.0)
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, f"could not download the header image: {exc}"
+        ) from exc
+    mime = response.headers.get("content-type", "").split(";")[0].strip().lower()
+    if not response.is_success or mime not in IMAGE_TYPES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"the header image must be a JPEG or PNG over https (got {mime or 'nothing'})",
+        )
+    if len(response.content) > MAX_IMAGE_BYTES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "the header image exceeds 5 MB")
+    return response.content, mime
+
+
 def _components(spec: TemplateSpec) -> dict[str, object]:
     """What we store: Meta's parts plus the variable names, legacy quick replies as buttons."""
-    stored = spec.model_dump(include={"header", "body", "footer", "example_values"})
+    stored = spec.model_dump(
+        include={"header", "header_image_url", "body", "footer", "example_values"}
+    )
     stored["buttons"] = [button.model_dump() for button in spec.all_buttons]
     stored["variables"] = spec.variables
     return stored
@@ -48,12 +73,18 @@ def _spec(row: Row) -> TemplateSpec:
 
 
 @router.post("/{template_id}/submit")
-async def submit_template(template_id: str, db: Db, meta: Meta) -> Row:
+async def submit_template(template_id: str, db: Db, meta: Meta, http: Http) -> Row:
+    """An image header first goes to Meta as a sample (download, then Resumable Upload)."""
     row = await _get(db, template_id)
     if row["status"] != "DRAFT":
         raise HTTPException(status.HTTP_409_CONFLICT, f"template is {row['status']}, not DRAFT")
+    spec = _spec(row)
     try:
-        created = await meta.create_template(_spec(row))
+        handle = None
+        if spec.header_image_url:
+            data, mime = await _download_image(http, spec.header_image_url)
+            handle = await meta.upload_sample(data, mime, f"{spec.name}.{IMAGE_TYPES[mime]}")
+        created = await meta.create_template(spec, header_handle=handle)
     except MetaPermanentError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except MetaTransientError as exc:

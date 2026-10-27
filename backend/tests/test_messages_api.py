@@ -63,6 +63,7 @@ def test_test_send_creates_contact_consent_and_message(
     assert row["idempotency_key"].startswith("test:")
     assert row["meta_response"] == {"messages": [{"id": "wamid.T1"}]}
     assert meta.sent == [(ALLOWED, "welcome_offer", "pl", ["Ala"])]
+    assert meta.sent_headers == [None]
     assert [c["phone_e164"] for c in db.rows("contacts")] == [ALLOWED]
     assert [(c["status"], c["source"]) for c in db.rows("consents")] == [
         ("opted_in", "test_allowlist")

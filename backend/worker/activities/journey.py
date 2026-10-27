@@ -87,7 +87,12 @@ class MessageSender(Protocol):
     """The Meta calls the activities need; MetaClient and the test double both satisfy it."""
 
     async def send_template(
-        self, to_e164: str, template_name: str, language: str, body_values: list[str]
+        self,
+        to_e164: str,
+        template_name: str,
+        language: str,
+        body_values: list[str],
+        header_image_url: str | None = None,
     ) -> SendResult: ...
 
     async def send_text(self, to_e164: str, text: str) -> SendResult: ...
@@ -164,7 +169,11 @@ class JourneyActivities:
             )
         try:
             result = await self._meta.send_template(
-                contact.phone_e164, template["name"], template["language"], request.body_values
+                contact.phone_e164,
+                template["name"],
+                template["language"],
+                request.body_values,
+                header_image_url=(template.get("components") or {}).get("header_image_url"),
             )
         except MetaPermanentError as exc:
             return await self._fail(message["id"], str(exc), code=exc.code)

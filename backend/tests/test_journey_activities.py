@@ -206,3 +206,11 @@ async def test_send_text_treats_metas_re_engagement_error_as_a_closed_window() -
     meta.send_error = MetaPermanentError("Meta 400: (#131047) Re-engagement message", code=131047)
     assert (await acts.send_text(text_request())).status == "skipped"
     assert db.rows("messages")[0]["status"] == "skipped"
+
+
+@pytest.mark.anyio
+async def test_send_template_passes_the_header_image_of_the_template() -> None:
+    db, meta, acts = seeded()
+    db.rows("templates")[0]["components"] = {"header_image_url": "https://cdn.example.org/a.png"}
+    assert (await acts.send_template(request())).status == "sent"
+    assert meta.sent_headers == ["https://cdn.example.org/a.png"]
