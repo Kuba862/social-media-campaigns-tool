@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from meta_client import MetaClient, MetaPermanentError, MetaTransientError, TemplateSpec
-from meta_client.mapping import message_payload, template_create_payload
+from meta_client.mapping import message_payload, template_create_payload, text_message_payload
 
 FIXTURES = Path(__file__).parent / "fixtures" / "meta"
 
@@ -150,3 +150,18 @@ async def test_validation_error_is_permanent_with_code() -> None:
         await meta.client().send_template("+48600000001", "nope", "pl", [])
     assert (info.value.code, info.value.subcode) == (100, 2494010)
     assert "Invalid parameter" in str(info.value)
+
+
+def test_text_payload_is_a_plain_message_without_link_preview() -> None:
+    payload = text_message_payload("+48600000001", "Cześć Ala")
+    assert (payload["type"], payload["to"]) == ("text", "48600000001")
+    assert payload["text"] == {"preview_url": False, "body": "Cześć Ala"}
+
+
+@pytest.mark.anyio
+async def test_send_text_posts_to_phone_number_and_returns_wamid() -> None:
+    meta = FakeMeta(body=fixture("message_send.json"))
+    result = await meta.client().send_text("+48600000001", "Cześć Ala")
+    assert meta.last is not None and meta.last.url.path == "/v24.0/PHONE1/messages"
+    assert meta.sent_json()["type"] == "text"
+    assert result.wamid.startswith("wamid.")

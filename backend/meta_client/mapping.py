@@ -42,6 +42,17 @@ def message_payload(
     }
 
 
+def text_message_payload(to_e164: str, text: str) -> dict[str, Any]:
+    """A free-form (service) message; Meta accepts it only inside the 24-hour window."""
+    return {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to_e164.lstrip("+"),
+        "type": "text",
+        "text": {"preview_url": False, "body": text},
+    }
+
+
 def parse_created_template(data: dict[str, Any]) -> CreatedTemplate:
     return CreatedTemplate(meta_template_id=str(data["id"]), status=data["status"])
 

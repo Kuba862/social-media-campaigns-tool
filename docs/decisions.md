@@ -718,6 +718,25 @@ kasuje przebiegi w toku, a dyspozytor po starcie oznacza je `failed` (sprawdzone
 w trakcie przebiegu, następny worker oznaczył wiersz); obraz ma ok. 440 MB; to rozwiązanie nie
 nadaje się do czekania dniami ani do więcej niż jednej instancji, czyli dokładnie do zakresu PoC.
 
+### 44. Węzeł `send_text`: wiadomość serwisowa tylko w oknie 24 godzin (2026-10-27)
+
+Decyzja: nowy typ węzła `send_text` z polami `text` (do 4096 znaków, placeholdery
+`{{contact.first_name}}` rozwiązywane przez `core.context.render_text`) i `if_closed`
+(`skip` domyślnie albo `fail`). Workflow sprawdza zgodę tak jak przy szablonie, renderuje tekst
+i woła aktywność `send_text`, która wstawia wiersz `messages` (`kind='text'`, `template_id`
+puste, ten sam klucz idempotencji), sprawdza okno 24 godzin po ostatnim wierszu
+`inbound_messages` kontaktu, a przy zamkniętym oknie oznacza wiersz `skipped` (i przebieg idzie
+dalej) albo `failed` (przebieg kończy się `failed`), bez ponowień. Odpowiedź Mety 131047
+(„re-engagement message”) jest traktowana jak zamknięte okno, inne błędy trwałe jak przy
+szablonie. `meta_client.send_text` wysyła `type: text` bez podglądu linków.
+Powód: od 1 października 2026 Meta liczy każdy dostarczony szablon, a wiadomości serwisowe
+w oknie 24 godzin są darmowe do 1000 miesięcznie na numer (dla non-profitów bez limitu do końca
+2027). Journey „szablon → odpowiedź → kilka tekstów w oknie” kosztuje jedną opłatę na osobę.
+Konsekwencje: migracja `20261027120000_service_messages.sql` (`template_id` opcjonalne, kolumny
+`kind` i `text`, status `skipped`); walidacja grafu nie sprawdza, czy przed `send_text` jest
+`wait_for_reply`, bo o oknie decyduje czas, nie kształt grafu; panel (edytor, log wiadomości)
+dostaje ten węzeł w osobnym kroku.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

@@ -22,6 +22,17 @@ class SendTemplateNode(Strict):
     variables: dict[str, str] = Field(default_factory=dict)
 
 
+class SendTextNode(Strict):
+    """A service message: plain text, free inside Meta's 24-hour window after the contact's last
+    message. `text` may use {{contact.first_name}}-style placeholders; `if_closed` says what the
+    run does when the window is closed."""
+
+    id: str
+    type: Literal["send_text"]
+    text: str = Field(min_length=1, max_length=4096)
+    if_closed: Literal["skip", "fail"] = "skip"
+
+
 class WaitNode(Strict):
     id: str
     type: Literal["wait"]
@@ -60,6 +71,7 @@ class EndNode(Strict):
 Node = Annotated[
     StartNode
     | SendTemplateNode
+    | SendTextNode
     | WaitNode
     | WaitForReplyNode
     | BranchNode

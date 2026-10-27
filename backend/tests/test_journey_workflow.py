@@ -1,5 +1,6 @@
 """JourneyWorkflow on Temporal's time-skipping test server with fake storage and fake Meta."""
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -41,6 +42,17 @@ DEFINITION: dict[str, Any] = {
         {"from": "mark", "to": "split"},
         {"from": "bye", "to": "end"},
     ],
+}
+
+
+TEXT_DEFINITION: dict[str, Any] = {
+    "schema_version": 1,
+    "nodes": [
+        {"id": "start", "type": "start"},
+        {"id": "hello", "type": "send_text", "text": "Cześć {{contact.first_name}}!"},
+        {"id": "end", "type": "end"},
+    ],
+    "edges": [{"from": "start", "to": "hello"}, {"from": "hello", "to": "end"}],
 }
 
 
@@ -145,3 +157,35 @@ async def test_crash_after_the_meta_call_is_retried_without_a_second_send() -> N
         ("hello", "wamid.T1"),
         ("bye", "wamid.T2"),
     ]
+
+
+def _with_policy(policy: str) -> dict[str, Any]:
+    nodes = [dict(node) for node in TEXT_DEFINITION["nodes"]]
+    nodes[1]["if_closed"] = policy
+    return {**TEXT_DEFINITION, "nodes": nodes}
+
+
+@pytest.mark.anyio
+async def test_send_text_renders_the_contact_into_a_service_message() -> None:
+    db, meta, acts = seeded()
+    received = (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+    db.rows("inbound_messages").append(
+        {"contact_id": "c-1", "wamid": "wamid.IN1", "received_at": received}
+    )
+    assert await run_journey(acts, TEXT_DEFINITION) == "completed"
+    assert meta.sent_texts == [(PHONE, "Cześć Ala!")]
+    assert db.rows("messages")[0]["kind"] == "text"
+
+
+@pytest.mark.anyio
+async def test_send_text_outside_the_window_is_skipped_and_the_run_goes_on() -> None:
+    db, meta, acts = seeded()
+    assert await run_journey(acts, TEXT_DEFINITION) == "completed"
+    assert meta.sent_texts == [] and db.rows("messages")[0]["status"] == "skipped"
+
+
+@pytest.mark.anyio
+async def test_send_text_with_the_fail_policy_ends_the_run() -> None:
+    db, meta, acts = seeded()
+    assert await run_journey(acts, _with_policy("fail")) == "failed"
+    assert db.rows("journey_runs")[0]["status"] == "failed"

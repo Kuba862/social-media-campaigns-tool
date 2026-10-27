@@ -11,6 +11,7 @@ from meta_client.mapping import (
     parse_send_result,
     parse_template_state,
     template_create_payload,
+    text_message_payload,
 )
 from meta_client.models import CreatedTemplate, SendResult, TemplateSpec, TemplateState
 
@@ -51,6 +52,12 @@ class MetaClient:
         self, to_e164: str, template_name: str, language: str, body_values: list[str]
     ) -> SendResult:
         payload = message_payload(to_e164, template_name, language, body_values)
+        data = await self._post(f"/{self._phone_number_id}/messages", payload)
+        return parse_send_result(data)
+
+    async def send_text(self, to_e164: str, text: str) -> SendResult:
+        """A service message; outside the 24-hour window Meta answers with code 131047."""
+        payload = text_message_payload(to_e164, text)
         data = await self._post(f"/{self._phone_number_id}/messages", payload)
         return parse_send_result(data)
 

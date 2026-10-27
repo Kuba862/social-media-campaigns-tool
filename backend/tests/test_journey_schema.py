@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from core.journey_schema import JourneyDefinition, WaitForReplyNode, WaitNode
+from core.journey_schema import JourneyDefinition, SendTextNode, WaitForReplyNode, WaitNode
 from tests._builders import START_END_EDGES, START_END_NODES, definition, edge, node
 
 
@@ -87,3 +87,22 @@ def test_node_count_limits() -> None:
 def test_models_are_immutable(guide_example: JourneyDefinition) -> None:
     with pytest.raises(ValidationError, match="frozen"):
         guide_example.nodes[0].id = "other"  # type: ignore[misc]
+
+
+def _text_journey(text: str) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "nodes": [
+            {"id": "start", "type": "start"},
+            {"id": "hi", "type": "send_text", "text": text},
+            {"id": "end", "type": "end"},
+        ],
+        "edges": [{"from": "start", "to": "hi"}, {"from": "hi", "to": "end"}],
+    }
+
+
+def test_send_text_node_parses_with_skip_as_the_default_policy() -> None:
+    hi = JourneyDefinition.model_validate(_text_journey("Cześć {{contact.first_name}}")).nodes[1]
+    assert isinstance(hi, SendTextNode) and hi.if_closed == "skip"
+    with pytest.raises(ValidationError):
+        JourneyDefinition.model_validate(_text_journey(""))
