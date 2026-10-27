@@ -62,4 +62,9 @@ test("a journey built only in the editor publishes", async ({ page, playwright }
   const row = page.getByRole("row").filter({ hasText: /published/ }); // not the header's "Published"
   await expect(row).toHaveCount(1);
   await expect(row).toContainText("6"); // nodes
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByText("No versions yet.")).toBeVisible();
+  await expect(page.getByText("draft", { exact: true })).toBeVisible(); // back to a draft journey
 });

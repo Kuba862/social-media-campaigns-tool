@@ -1,4 +1,4 @@
-export type MessageEvent = { type: string; occurred_at: string };
+export type MessageEvent = { type: string; occurred_at: string; payload?: unknown };
 
 export type MessageRow = {
   id: string;
@@ -6,6 +6,7 @@ export type MessageRow = {
   node_id: string;
   wamid: string | null;
   error: { message?: string; code?: number } | null;
+  meta_response?: unknown;
   created_at: string;
   kind: "template" | "text";
   text: string | null;
@@ -43,4 +44,19 @@ export function messageLabel(row: Pick<MessageRow, "kind" | "text" | "templates"
     return `text: ${text.slice(0, 40)}${text.length > 40 ? "…" : ""}`;
   }
   return row.templates ? `${row.templates.name} (${row.templates.language})` : "-";
+}
+
+/** Everything Meta said about a message, for the log's detail view: send response and events. */
+export function metaJson(
+  row: Pick<MessageRow, "meta_response" | "error" | "message_events">,
+): string {
+  return JSON.stringify(
+    {
+      send_response: row.meta_response ?? null,
+      error: row.error,
+      events: row.message_events.map((event) => event.payload ?? { type: event.type }),
+    },
+    null,
+    2,
+  );
 }

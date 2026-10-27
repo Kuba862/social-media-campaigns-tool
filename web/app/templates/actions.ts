@@ -31,6 +31,15 @@ export async function syncTemplate(form: FormData) {
   );
 }
 
+export async function deleteTemplate(form: FormData) {
+  const id = String(form.get("id") ?? "");
+  await perform(
+    () => apiFetch(`/templates/${id}`, { method: "DELETE" }),
+    "/templates",
+    "/templates",
+  );
+}
+
 export async function sendTest(form: FormData) {
   await perform(
     () => apiFetch("/messages/test", { method: "POST", body: testSendFromForm(form) }),

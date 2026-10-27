@@ -24,4 +24,8 @@ test("draft is saved and submit reports Meta is not configured", async ({ page }
   await expect(page.getByRole("alert").filter({ hasText: "Meta" })).toContainText(
     "Meta is not configured",
   );
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
 });

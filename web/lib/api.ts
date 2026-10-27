@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-type Options = { method?: "GET" | "POST" | "PUT"; body?: unknown };
+type Options = { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown };
 
 function detailsOf(payload: unknown): string[] {
   if (!payload || typeof payload !== "object" || !("detail" in payload)) return [];
@@ -58,5 +58,6 @@ export async function apiFetch<T>(path: string, options: Options = {}): Promise<
       details,
     );
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }

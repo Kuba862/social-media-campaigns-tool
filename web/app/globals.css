@@ -308,6 +308,41 @@ ul {
   margin: 0 0 var(--space-2);
 }
 
+/* ---- row actions and expandable log rows -------------------------------------------------- */
+.row-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.row-actions form {
+  display: inline;
+  padding: 0;
+}
+tr.expandable {
+  cursor: pointer;
+}
+tr.expandable:hover td {
+  background: var(--surface-2);
+}
+.disclosure {
+  padding: 0 6px;
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+tr.detail td {
+  background: var(--surface-2);
+}
+tr.detail pre {
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---- home: campaign data, a 2x2 grid of stat tiles with a chart each ----------------------- */
 .stats {
   display: grid;

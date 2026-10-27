@@ -764,6 +764,8 @@ z `name` i `hsm_id`, a bez skonfigurowanej Mety trasa odpowiada 503. Wiadomości
 szablonem zostają w logu z pustym `template_id` (klucz obcy `on delete set null`).
 `DELETE /journeys/{id}/versions/{vid}` usuwa szkic lub nieużywaną wersję; wersja z przebiegami
 to historia i zostaje (409); gdy znika ostatnia opublikowana wersja, journey wraca do `draft`.
+Wyzwalacz `journey_versions_immutable_after_publish` blokuje odtąd tylko zmiany opublikowanej
+wersji, nie jej usunięcie (migracja `20261027153000_delete_published_versions.sql`).
 `messages.meta_response` przechowuje całą odpowiedź Mety na wysyłkę (test send, aktywności
 workera), a `message_events.payload` zamiast sparsowanego zdarzenia trzyma obiekt statusu
 dokładnie tak, jak przysłała go Meta. Klient PostgREST i jego atrapa dostały `delete`.

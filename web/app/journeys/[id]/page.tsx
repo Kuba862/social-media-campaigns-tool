@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Nav } from "@/components/nav";
 import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
 import { nodeCount, type JourneyDetail } from "@/lib/journeys";
+import { deleteVersion } from "./actions";
 
 async function loadJourney(
   id: string,
@@ -17,8 +19,15 @@ async function loadJourney(
   }
 }
 
-export default async function JourneyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function JourneyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { id } = await params;
+  const { error } = await searchParams;
   const { journey, problem } = await loadJourney(id);
   return (
     <>
@@ -28,7 +37,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ id: st
           <Link href="/journeys">Journeys</Link> / {journey?.name ?? "Journey"}
         </p>
         <h1>{journey?.name ?? "Journey"}</h1>
-        {problem && <p role="alert">{problem}</p>}
+        {(error ?? problem) && <p role="alert">{error ?? problem}</p>}
         {journey && (
           <>
             <div className="page-head">
@@ -53,6 +62,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ id: st
                     <th>State</th>
                     <th>Nodes</th>
                     <th>Published</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -64,6 +74,18 @@ export default async function JourneyPage({ params }: { params: Promise<{ id: st
                       </td>
                       <td>{nodeCount(version)}</td>
                       <td>{version.published_at?.slice(0, 19).replace("T", " ") ?? "-"}</td>
+                      <td>
+                        <form action={deleteVersion}>
+                          <input type="hidden" name="journey_id" value={journey.id} />
+                          <input type="hidden" name="version_id" value={version.id} />
+                          <ConfirmButton
+                            message={`Delete version ${version.version}? Versions with runs are kept by the API.`}
+                            className="secondary danger"
+                          >
+                            Delete
+                          </ConfirmButton>
+                        </form>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
