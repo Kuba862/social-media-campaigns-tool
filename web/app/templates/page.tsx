@@ -1,8 +1,9 @@
+import { ConfirmButton } from "@/components/confirm-button";
 import { Nav } from "@/components/nav";
 import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { TemplateRow } from "@/lib/templates";
-import { createTemplate, sendTest, submitTemplate, syncTemplate } from "./actions";
+import { createTemplate, deleteTemplate, sendTest, submitTemplate, syncTemplate } from "./actions";
 
 async function loadTemplates(): Promise<{ rows: TemplateRow[]; problem: string | null }> {
   try {
@@ -59,10 +60,21 @@ export default async function TemplatesPage({
                   </td>
                   <td>{row.meta_template_id ?? "-"}</td>
                   <td>
-                    <form action={row.status === "DRAFT" ? submitTemplate : syncTemplate}>
-                      <input type="hidden" name="id" value={row.id} />
-                      <button type="submit">{row.status === "DRAFT" ? "Submit" : "Sync"}</button>
-                    </form>
+                    <div className="row-actions">
+                      <form action={row.status === "DRAFT" ? submitTemplate : syncTemplate}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <button type="submit">{row.status === "DRAFT" ? "Submit" : "Sync"}</button>
+                      </form>
+                      <form action={deleteTemplate}>
+                        <input type="hidden" name="id" value={row.id} />
+                        <ConfirmButton
+                          message={`Delete template ${row.name} (${row.language})? Meta blocks a deleted name for 30 days.`}
+                          className="secondary danger"
+                        >
+                          Delete
+                        </ConfirmButton>
+                      </form>
+                    </div>
                   </td>
                   <td>
                     {row.status === "APPROVED" && (

@@ -37,4 +37,7 @@ test("approved template offers a test send and the log page renders", async ({
   await page.goto("/messages");
   await expect(page.getByRole("heading", { name: "Messages" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "Status" })).toBeVisible();
+  const logRow = page.getByRole("row").filter({ hasText: name }).first();
+  await logRow.click();
+  await expect(page.getByLabel("Meta JSON")).toContainText('"error"');
 });

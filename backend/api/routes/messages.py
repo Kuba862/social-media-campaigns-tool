@@ -14,7 +14,9 @@ from meta_client import MetaError, MetaPermanentError
 
 router = APIRouter(prefix="/messages", tags=["messages"], dependencies=[Depends(current_user)])
 
-LOG_COLUMNS = "*,templates(name,language),contacts(phone_e164),message_events(type,occurred_at)"
+LOG_COLUMNS = (
+    "*,templates(name,language),contacts(phone_e164),message_events(type,occurred_at,payload)"
+)
 
 
 class TestSendRequest(BaseModel):

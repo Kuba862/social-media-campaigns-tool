@@ -1,7 +1,7 @@
 import { Nav } from "@/components/nav";
-import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
-import { eventLabels, messageLabel, type MessageRow } from "@/lib/messages";
+import type { MessageRow } from "@/lib/messages";
+import { MessageRows } from "./message-rows";
 
 async function loadMessages(): Promise<{ rows: MessageRow[]; problem: string | null }> {
   try {
@@ -21,7 +21,10 @@ export default async function MessagesPage() {
         <div className="page-head">
           <div>
             <h1>Messages</h1>
-            <p className="lede">Every message the system sent, with the statuses Meta reported.</p>
+            <p className="lede">
+              Every message the system sent, with the statuses Meta reported. Click a row for
+              Meta&apos;s raw JSON.
+            </p>
           </div>
         </div>
         {problem && <p role="alert">{problem}</p>}
@@ -37,20 +40,7 @@ export default async function MessagesPage() {
                 <th>Error</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.created_at.slice(0, 19).replace("T", " ")}</td>
-                  <td>{messageLabel(row)}</td>
-                  <td>{row.contacts?.phone_e164 ?? "-"}</td>
-                  <td>
-                    <Status value={row.status} />
-                  </td>
-                  <td>{eventLabels(row.message_events).join(", ") || "-"}</td>
-                  <td>{row.error?.message ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
+            <MessageRows rows={rows} />
           </table>
           {rows.length === 0 && <p className="empty">No messages yet.</p>}
         </div>

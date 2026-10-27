@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventLabels, testSendFromForm } from "./messages";
+import { eventLabels, metaJson, testSendFromForm } from "./messages";
 
 describe("testSendFromForm", () => {
   it("builds the API body and splits values", () => {
@@ -30,5 +30,27 @@ describe("eventLabels", () => {
       { type: "delivered", occurred_at: "2025-06-18T16:23:00+00:00" },
     ]);
     expect(labels).toEqual(["sent 16:22:53", "delivered 16:23:00", "read 16:23:30"]);
+  });
+});
+
+describe("metaJson", () => {
+  it("bundles the send response, the error and the raw events for the detail view", () => {
+    const text = metaJson({
+      meta_response: { messages: [{ id: "wamid.1" }] },
+      error: null,
+      message_events: [
+        {
+          type: "delivered",
+          occurred_at: "2026-10-27T10:00:00+00:00",
+          payload: { status: "delivered" },
+        },
+        { type: "read", occurred_at: "2026-10-27T10:01:00+00:00" },
+      ],
+    });
+    expect(JSON.parse(text)).toEqual({
+      send_response: { messages: [{ id: "wamid.1" }] },
+      error: null,
+      events: [{ status: "delivered" }, { type: "read" }],
+    });
   });
 });
