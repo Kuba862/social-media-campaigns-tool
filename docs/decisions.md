@@ -737,6 +737,25 @@ Konsekwencje: migracja `20261027120000_service_messages.sql` (`template_id` opcj
 `wait_for_reply`, bo o oknie decyduje czas, nie kształt grafu; panel (edytor, log wiadomości)
 dostaje ten węzeł w osobnym kroku.
 
+### 45. Strona główna: cztery kafle z wykresami SVG renderowanymi po stronie serwera (2026-10-27)
+
+Decyzja: pod kafelkami nawigacji strona główna pokazuje siatkę 2×2 (wiadomości, journeys,
+szablony, sync). Każdy box to kafel ze statystyką (liczba, jedna linia opisu) i jeden wykres:
+kolumny w czasie (wiadomości na dzień z 14 dni, kontakty zapisane na przebieg synchronizacji
+z 10 ostatnich) albo poziome słupki po statusach (przebiegi, szablony). Wykresy to komponenty
+SVG w `web/components/charts.tsx` bez biblioteki i bez JavaScriptu w przeglądarce: jeden kolor
+na wykres (dwa w stosie sync), cienkie słupki z zaokrąglonym końcem danych, przerwa 2 px między
+wypełnieniami, podpowiedź `<title>` na polu trafienia szerszym niż słupek, etykieta tylko przy
+najwyższej kolumnie, legenda tylko przy dwóch seriach, a pod każdym wykresem zwijana tabela
+z tymi samymi liczbami. Agregacje są czystymi funkcjami w `web/lib/stats.ts`. Kolory
+`--viz-1`/`--viz-2` (niebieski, pomarańczowy) są osobnymi tokenami w jasnym i ciemnym motywie,
+sprawdzone walidatorem palety (kontrast, daltonizm) na obu powierzchniach. API dostało
+`GET /runs` (wszystkie przebiegi), bo lista per journey wymagałaby jednego zapytania na journey.
+Powód: właściciel chce widzieć dane kampanii od razu po zalogowaniu; PoC ma mało danych, więc
+liczenie w panelu z list z API wystarcza. Konsekwencje: przy dużej liczbie wiadomości
+i przebiegów strona główna będzie pobierać całe listy; wtedy agregacja przechodzi do API
+(np. widok lub funkcja SQL) bez zmiany komponentów.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

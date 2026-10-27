@@ -185,6 +185,12 @@ async def list_runs(journey_id: str, db: Db) -> list[Row]:
     )
 
 
+@runs_router.get("")
+async def list_all_runs(db: Db) -> list[Row]:
+    """Every run across journeys, newest first; the home page's campaign overview reads this."""
+    return await db.select("journey_runs", columns="*,contacts(phone_e164),journeys(name)")
+
+
 @runs_router.get("/{run_id}")
 async def get_run(run_id: str, db: Db, runs: Runs) -> Row:
     """The stored row, plus the live node and waiting reason when the engine can tell."""

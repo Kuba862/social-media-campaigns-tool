@@ -25,6 +25,8 @@
   --info: #1d5fb4;
   --info-soft: #e5eefb;
   --focus: rgba(15, 123, 88, 0.35);
+  --viz-1: #2a78d6; /* chart slot 1 (blue); validated against the light surface */
+  --viz-2: #eb6834; /* chart slot 2 (orange) */
   --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
   --shadow-2: 0 4px 16px rgba(16, 24, 40, 0.08);
   --radius-s: 6px;
@@ -64,6 +66,8 @@
     --info: #74a9f3;
     --info-soft: #14263d;
     --focus: rgba(53, 196, 138, 0.4);
+    --viz-1: #3987e5; /* the same hues stepped for the dark surface */
+    --viz-2: #d95926;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
     color-scheme: dark;
@@ -302,6 +306,111 @@ ul {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: 0 0 var(--space-2);
+}
+
+/* ---- home: campaign data, a 2x2 grid of stat tiles with a chart each ----------------------- */
+.stats {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-6);
+}
+.stat {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.stat h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.stat .value {
+  margin: 0;
+  font-size: 2.1rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.stat .note {
+  margin: 0 0 var(--space-2);
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+.viz {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.viz text {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  fill: var(--text-3);
+}
+.viz .label {
+  fill: var(--text-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.viz .axis {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.viz .mark {
+  fill: var(--viz-1);
+}
+.viz .mark-2 {
+  fill: var(--viz-2);
+}
+.viz .hit {
+  fill: transparent;
+}
+.viz g:hover .mark,
+.viz g:hover .mark-2 {
+  opacity: 0.75;
+}
+.viz-empty {
+  margin: var(--space-3) 0;
+}
+.legend {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+.legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.legend .mark {
+  background: var(--viz-1);
+}
+.legend .mark-2 {
+  background: var(--viz-2);
+}
+.viz-table summary {
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: 0.85rem;
+}
+.viz-table table {
+  margin-top: var(--space-2);
+  font-size: 0.85rem;
+}
+.viz-table th,
+.viz-table td {
+  padding: 4px 8px;
+}
+@media (max-width: 700px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---- feedback ---------------------------------------------------------------------------- */
