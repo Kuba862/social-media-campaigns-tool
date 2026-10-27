@@ -61,9 +61,12 @@ def test_create_draft_then_list(client: TestClient) -> None:
     row = created.json()
     assert row["status"] == "DRAFT" and row["waba_id"] == "local-waba"
     assert row["components"] == {
+        "header": None,
         "body": "Cześć {{1}}!",
+        "footer": None,
         "example_values": ["Ala"],
-        "quick_replies": [],
+        "buttons": [],
+        "variables": ["1"],
     }
     assert [r["id"] for r in client.get("/templates").json()] == [row["id"]]
 
@@ -133,3 +136,54 @@ def test_delete_submitted_template_deletes_it_at_meta_first(
     app.dependency_overrides[get_meta_or_none] = lambda: meta
     assert client.delete(f"/templates/{template_id}").status_code == 204
     assert meta.deleted == [("welcome_offer", "m-1")] and db.rows("templates") == []
+
+
+V2 = {
+    "name": "oferta_1",
+    "language": "pl",
+    "category": "UTILITY",
+    "header": "Nowa oferta",
+    "body": "Cześć {{first_name}}, Twoja oferta: {{offer}}.",
+    "footer": "Odpowiedz STOP, aby zrezygnować",
+    "buttons": [
+        {"type": "quick_reply", "text": "Tak"},
+        {"type": "url", "text": "Zobacz", "url": "https://example.org/oferta"},
+    ],
+    "example_values": ["Ala", "20%"],
+}
+
+
+def test_create_v2_draft_stores_parts_and_variable_names(client: TestClient) -> None:
+    row = client.post("/templates", json=V2).json()
+    components = row["components"]
+    assert components["variables"] == ["first_name", "offer"]
+    assert [b["type"] for b in components["buttons"]] == ["quick_reply", "url"]
+    assert (components["header"], components["footer"]) == (V2["header"], V2["footer"])
+    bad = client.post(
+        "/templates",
+        json={**V2, "name": "zle", "body": "{{first_name}} cześć", "example_values": ["Ala"]},
+    )
+    assert bad.status_code == 422 and "start with a variable" in bad.text
+
+
+def test_legacy_quick_replies_become_buttons_and_old_rows_still_submit(
+    client: TestClient, db: FakeDb, meta: FakeMeta
+) -> None:
+    row = client.post("/templates", json={**DRAFT, "quick_replies": ["Tak", "Nie"]}).json()
+    assert [b["text"] for b in row["components"]["buttons"]] == ["Tak", "Nie"]
+    db.rows("templates").append(  # a row written before 11c
+        {
+            "id": "old-1",
+            "name": "stary",
+            "language": "pl",
+            "category": "MARKETING",
+            "status": "DRAFT",
+            "components": {
+                "body": "Hej {{1}}!",
+                "example_values": ["Ala"],
+                "quick_replies": ["Ok"],
+            },
+        }
+    )
+    assert client.post("/templates/old-1/submit").status_code == 200
+    assert [b.text for b in meta.created[-1].all_buttons] == ["Ok"]

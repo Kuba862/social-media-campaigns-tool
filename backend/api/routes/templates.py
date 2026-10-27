@@ -25,9 +25,25 @@ async def create_template(spec: TemplateSpec, db: Db, settings: AppSettings) -> 
             "name": spec.name,
             "language": spec.language,
             "category": spec.category,
-            "components": spec.model_dump(include={"body", "example_values", "quick_replies"}),
+            "components": _components(spec),
             "status": "DRAFT",
         },
+    )
+
+
+def _components(spec: TemplateSpec) -> dict[str, object]:
+    """What we store: Meta's parts plus the variable names, legacy quick replies as buttons."""
+    stored = spec.model_dump(include={"header", "body", "footer", "example_values"})
+    stored["buttons"] = [button.model_dump() for button in spec.all_buttons]
+    stored["variables"] = spec.variables
+    return stored
+
+
+def _spec(row: Row) -> TemplateSpec:
+    """A stored row back as a spec; `variables` is derived, so it is not a field."""
+    components = {k: v for k, v in row["components"].items() if k != "variables"}
+    return TemplateSpec(
+        name=row["name"], language=row["language"], category=row["category"], **components
     )
 
 
@@ -36,11 +52,8 @@ async def submit_template(template_id: str, db: Db, meta: Meta) -> Row:
     row = await _get(db, template_id)
     if row["status"] != "DRAFT":
         raise HTTPException(status.HTTP_409_CONFLICT, f"template is {row['status']}, not DRAFT")
-    spec = TemplateSpec(
-        name=row["name"], language=row["language"], category=row["category"], **row["components"]
-    )
     try:
-        created = await meta.create_template(spec)
+        created = await meta.create_template(_spec(row))
     except MetaPermanentError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     except MetaTransientError as exc:
