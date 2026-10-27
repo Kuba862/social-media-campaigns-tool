@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Nav } from "@/components/nav";
 import { Status } from "@/components/status";
 import { ApiError, apiFetch } from "@/lib/api";
-import type { TemplateRow } from "@/lib/templates";
-import { createTemplate, deleteTemplate, sendTest, submitTemplate, syncTemplate } from "./actions";
+import { isService, type TemplateRow } from "@/lib/templates";
+import { deleteTemplate, sendTest, submitTemplate, syncTemplate } from "./actions";
 
 async function loadTemplates(): Promise<{ rows: TemplateRow[]; problem: string | null }> {
   try {
@@ -30,8 +31,14 @@ export default async function TemplatesPage({
           <div>
             <h1>Templates</h1>
             <p className="lede">
-              Drafts live here until you submit them; Meta&apos;s verdict comes back by webhook.
+              Meta templates wait here as drafts until you submit them; saved service messages are
+              ready at once.
             </p>
+          </div>
+          <div className="toolbar">
+            <Link href="/templates/new" className="button">
+              New message
+            </Link>
           </div>
         </div>
         {message && <p role="alert">{message}</p>}
@@ -40,6 +47,7 @@ export default async function TemplatesPage({
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Type</th>
                 <th>Language</th>
                 <th>Category</th>
                 <th>Status</th>
@@ -52,6 +60,7 @@ export default async function TemplatesPage({
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td>{row.name}</td>
+                  <td>{isService(row) ? "service message" : "template"}</td>
                   <td>{row.language}</td>
                   <td>{row.category}</td>
                   <td>
@@ -61,10 +70,14 @@ export default async function TemplatesPage({
                   <td>{row.meta_template_id ?? "-"}</td>
                   <td>
                     <div className="row-actions">
-                      <form action={row.status === "DRAFT" ? submitTemplate : syncTemplate}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <button type="submit">{row.status === "DRAFT" ? "Submit" : "Sync"}</button>
-                      </form>
+                      {!isService(row) && (
+                        <form action={row.status === "DRAFT" ? submitTemplate : syncTemplate}>
+                          <input type="hidden" name="id" value={row.id} />
+                          <button type="submit">
+                            {row.status === "DRAFT" ? "Submit" : "Sync"}
+                          </button>
+                        </form>
+                      )}
                       <form action={deleteTemplate}>
                         <input type="hidden" name="id" value={row.id} />
                         <ConfirmButton
@@ -96,39 +109,6 @@ export default async function TemplatesPage({
             </tbody>
           </table>
         </div>
-
-        <h2>New draft</h2>
-        <form action={createTemplate}>
-          <label>
-            Name
-            <input name="name" required pattern="[a-z0-9_]+" />
-          </label>
-          <label>
-            Language
-            <input name="language" required defaultValue="pl" />
-          </label>
-          <label>
-            Category
-            <select name="category" defaultValue="MARKETING">
-              <option>MARKETING</option>
-              <option>UTILITY</option>
-              <option>AUTHENTICATION</option>
-            </select>
-          </label>
-          <label>
-            Body
-            <textarea name="body" required rows={4} />
-          </label>
-          <label>
-            Example values, one per variable, comma-separated
-            <input name="example_values" />
-          </label>
-          <label>
-            Quick replies, comma-separated, up to three
-            <input name="quick_replies" />
-          </label>
-          <button type="submit">Save draft</button>
-        </form>
       </main>
     </>
   );

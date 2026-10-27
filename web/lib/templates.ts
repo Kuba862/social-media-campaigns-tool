@@ -1,7 +1,18 @@
+/** Rows and API bodies of /templates: Meta templates and saved service messages share the table. */
+
+export type TemplateButton =
+  { type: "quick_reply"; text: string } | { type: "url"; text: string; url: string };
+
 export type TemplateComponents = {
+  header?: string | null;
+  header_image_url?: string | null;
   body: string;
-  example_values: string[];
-  quick_replies: string[];
+  footer?: string | null;
+  buttons?: TemplateButton[];
+  example_values?: string[];
+  variables?: string[];
+  image_url?: string | null; // service messages
+  quick_replies?: string[]; // rows written before the creator
 };
 
 export type TemplateRow = {
@@ -9,6 +20,7 @@ export type TemplateRow = {
   name: string;
   language: string;
   category: string;
+  kind?: "template" | "service";
   status: string;
   meta_template_id: string | null;
   rejection_reason: string | null;
@@ -16,26 +28,27 @@ export type TemplateRow = {
   created_at: string;
 };
 
-export type TemplateSpec = TemplateComponents & {
+/** POST /templates */
+export type TemplateSpec = {
   name: string;
   language: string;
-  category: string;
+  category: "UTILITY" | "MARKETING";
+  header: string | null;
+  header_image_url: string | null;
+  body: string;
+  footer: string | null;
+  buttons: TemplateButton[];
+  example_values: string[];
 };
 
-/** Turns the draft form into the API body. Lists are comma- or newline-separated in the form. */
-export function specFromForm(form: FormData): TemplateSpec {
-  const text = (key: string) => String(form.get(key) ?? "").trim();
-  const list = (key: string) =>
-    text(key)
-      .split(/[,\n]/)
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-  return {
-    name: text("name"),
-    language: text("language"),
-    category: text("category") || "MARKETING",
-    body: String(form.get("body") ?? ""),
-    example_values: list("example_values"),
-    quick_replies: list("quick_replies"),
-  };
+/** POST /templates/service */
+export type ServiceMessageSpec = {
+  name: string;
+  language: string;
+  body: string;
+  image_url: string | null;
+};
+
+export function isService(row: Pick<TemplateRow, "kind">): boolean {
+  return row.kind === "service";
 }

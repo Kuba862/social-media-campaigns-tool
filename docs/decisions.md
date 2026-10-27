@@ -826,6 +826,24 @@ Konsekwencje: migracja `20261027170000_service_messages_kind.sql` (kolumna `kind
 `READY`); panel odróżnia rodzaje po `kind` (kroki 11f–11h); obraz musi być publicznie
 dostępny pod https w chwili wysyłki, bo Meta pobiera go z adresu.
 
+### 50. Kreator wiadomości w panelu: dwa kroki, reguły Mety na żywo, lista w jednym miejscu (2026-10-27)
+
+Decyzja: tworzenie przenosi się z formularza pod listą na stronę `/templates/new`. Krok 1 to
+kafelki z ikonami „Template” i „Service message” plus nazwa sprawdzana od razu (wzorzec Mety
+i unikalność wśród nazw z listy); krok 2 to formularz zależny od rodzaju. Formularz szablonu:
+język (lista kodów Mety), kategoria UTILITY lub MARKETING, nagłówek (brak, tekst, obraz),
+treść ze zmiennymi nazwanymi, pola przykładów pojawiające się przy każdej zmiennej, stopka,
+do pięciu przycisków (szybka odpowiedź lub link). Formularz wiadomości serwisowej: język, adres
+obrazu, treść bez zmiennych. Reguły Mety są w `web/lib/template-rules.ts` jako lustro
+`meta_client/models.py` i pokazują się podczas pisania; API pozostaje rozstrzygające. Akcje
+serwera zwracają komunikat błędu zamiast przekierowania, żeby formularz nie tracił stanu. Obok
+formularza jest kolumna „What Meta accepts”. Lista pokazuje rodzaj wiersza, a Submit i Sync
+tylko przy szablonach.
+Powód: właściciel chce tworzyć szablony i wiadomości serwisowe w jednym miejscu z lepszym UX;
+rozdzielenie listy od kreatora i dwa kroki porządkują długi formularz. Konsekwencje: stary
+parser `specFromForm` i formularz pod listą znikają; testy e2e przechodzą przez kreator
+(`createDraft` w `e2e/helpers.ts`); podgląd wiadomości w stylu WhatsApp to krok 11g.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a
