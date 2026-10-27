@@ -137,6 +137,7 @@ def test_list_get_and_cancel_runs(
     ][0]
     runs = client.get(f"/journeys/{journey_id}/runs").json()
     assert [r["status"] for r in runs] == ["queued"]  # the worker's dispatcher makes it running
+    assert [r["id"] for r in client.get("/runs").json()] == [run_id]  # across all journeys
     db.rows("journey_runs")[0]["status"] = "running"
     live = client.get(f"/runs/{run_id}").json()
     assert live["live"] == {"node_id": "n2", "waiting": "sleep"}
