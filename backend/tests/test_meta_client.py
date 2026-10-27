@@ -182,3 +182,50 @@ async def test_send_result_keeps_metas_whole_response() -> None:
     meta = FakeMeta(body=fixture("message_send.json"))
     result = await meta.client().send_template("+48600000001", "welcome_offer", "pl", ["Ala"])
     assert result.raw == fixture("message_send.json")
+
+
+V2 = TemplateSpec(
+    name="oferta_1",
+    language="pl",
+    category="UTILITY",
+    header="Nowa oferta",
+    body="Cześć {{first_name}}, Twoja oferta: {{offer}}. Do zobaczenia, {{first_name}}!",
+    footer="Odpowiedz STOP, aby zrezygnować",
+    buttons=[
+        {"type": "quick_reply", "text": "Tak"},
+        {"type": "url", "text": "Zobacz", "url": "https://example.org/oferta"},
+    ],
+    example_values=["Ala", "20%"],
+)
+
+
+def test_named_variables_become_positional_in_metas_component_order() -> None:
+    assert V2.variables == ["first_name", "offer"]
+    payload = template_create_payload(V2)
+    header, body, footer, buttons = payload["components"]
+    assert header == {"type": "HEADER", "format": "TEXT", "text": "Nowa oferta"}
+    assert body["text"] == "Cześć {{1}}, Twoja oferta: {{2}}. Do zobaczenia, {{1}}!"
+    assert body["example"] == {"body_text": [["Ala", "20%"]]}
+    assert footer == {"type": "FOOTER", "text": "Odpowiedz STOP, aby zrezygnować"}
+    assert buttons["buttons"] == [
+        {"type": "QUICK_REPLY", "text": "Tak"},
+        {"type": "URL", "text": "Zobacz", "url": "https://example.org/oferta"},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"body": "{{first_name}} cześć", "example_values": ["Ala"]}, "must not start with"),
+        ({"body": "Cześć {{first_name}}", "example_values": ["Ala"]}, "must not end with"),
+        ({"body": "Hej {{a}} {{b}} tam", "example_values": ["1", "2"]}, "separated by text"),
+        ({"body": "Hej {{1}} i {{b}} tam", "example_values": ["1", "2"]}, "all named"),
+        ({"body": "Hej {{1a}} tam", "example_values": ["1"]}, "start with a letter"),
+        ({"header": "Hej {{first_name}}"}, "header cannot contain variables"),
+        ({"buttons": [{"type": "url", "text": "a", "url": "https://x.y"}] * 3}, "at most 2 URL"),
+        ({"buttons": [{"type": "quick_reply", "text": "a"}] * 6}, "at most 5"),
+    ],
+)
+def test_meta_template_rules(changes: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        TemplateSpec(**{**V2.model_dump(), **changes})

@@ -6,17 +6,24 @@ from meta_client.models import CreatedTemplate, SendResult, TemplateSpec, Templa
 
 
 def template_create_payload(spec: TemplateSpec) -> dict[str, Any]:
-    body: dict[str, Any] = {"type": "BODY", "text": spec.body}
+    """Meta's components in their order: HEADER, BODY (positional variables), FOOTER, BUTTONS."""
+    components: list[dict[str, Any]] = []
+    if spec.header:
+        components.append({"type": "HEADER", "format": "TEXT", "text": spec.header})
+    body: dict[str, Any] = {"type": "BODY", "text": spec.positional_body}
     if spec.example_values:
         body["example"] = {"body_text": [spec.example_values]}
-    components: list[dict[str, Any]] = [body]
-    if spec.quick_replies:
-        components.append(
-            {
-                "type": "BUTTONS",
-                "buttons": [{"type": "QUICK_REPLY", "text": text} for text in spec.quick_replies],
-            }
-        )
+    components.append(body)
+    if spec.footer:
+        components.append({"type": "FOOTER", "text": spec.footer})
+    buttons = [
+        {"type": "QUICK_REPLY", "text": button.text}
+        if button.type == "quick_reply"
+        else {"type": "URL", "text": button.text, "url": button.url}
+        for button in spec.all_buttons
+    ]
+    if buttons:
+        components.append({"type": "BUTTONS", "buttons": buttons})
     return {
         "name": spec.name,
         "language": spec.language,

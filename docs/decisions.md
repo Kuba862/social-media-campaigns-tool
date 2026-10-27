@@ -774,6 +774,25 @@ JSON od Mety przy każdej wiadomości. Konsekwencje: nazwa usuniętego zatwierdz
 jest u Mety zablokowana na 30 dni; opublikowana journey, która wskazuje usunięty szablon,
 zawiedzie dopiero przy wysyłce (edytor pokaże brak zatwierdzonego szablonu przy publikacji).
 
+### 47. Szablon v2: nagłówek, stopka, przyciski i zmienne nazwane tłumaczone na pozycyjne (2026-10-27)
+
+Decyzja: `TemplateSpec` ma `header` (tekst do 60 znaków, bez zmiennych), `body`, `footer`
+(do 60 znaków), do 5 przycisków `quick_reply` (tekst do 25 znaków) lub `url` (tekst i adres
+https, najwyżej 2), kategorię i język. Zmienne w treści mogą być nazwane (`{{first_name}}`)
+albo pozycyjne (`{{1}}`), bez mieszania; do Mety zawsze idą pozycyjne w kolejności pierwszego
+wystąpienia (`positional_body`), a nazwy trafiają do `components.variables`. Reguły Mety
+sprawdzamy u siebie: treść nie zaczyna się ani nie kończy zmienną, dwie zmienne rozdziela
+tekst, każda ma przykładową wartość. Stare wiersze z `quick_replies` są nadal czytane; przy
+tworzeniu zamieniamy je na przyciski. Mapowanie buduje komponenty w kolejności HEADER, BODY,
+FOOTER, BUTTONS.
+Powód: właściciel chce w kreatorze nagłówka, stopki, przycisków i zmiennych z czytelnymi
+nazwami; tłumaczenie na pozycyjne nie zmienia wysyłki ani silnika, a nazwy wystarczą
+edytorowi journey do podpisania zmiennych. Natywne parametry nazwane Mety (`parameter_format:
+named`) zostają jako opcja na później, gdyby potrzebne były w treściach wysyłanych z API.
+Konsekwencje: nagłówek graficzny wymaga wgrania próbki przez Resumable Upload API i nowej
+zmiennej `META_APP_ID` (krok 11d); edytor journey nadal mapuje zmienne po numerach, nazwy
+podpisze w kroku 11h.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

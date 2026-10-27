@@ -2,7 +2,15 @@
 
 from meta_client.client import MetaClient
 from meta_client.errors import MetaError, MetaPermanentError, MetaTransientError
-from meta_client.models import CreatedTemplate, SendResult, TemplateSpec, TemplateState
+from meta_client.models import (
+    Button,
+    CreatedTemplate,
+    QuickReplyButton,
+    SendResult,
+    TemplateSpec,
+    TemplateState,
+    UrlButton,
+)
 from meta_client.webhooks import (
     InboundMessageEvent,
     MessageStatusEvent,
@@ -13,6 +21,7 @@ from meta_client.webhooks import (
 )
 
 __all__ = [
+    "Button",
     "CreatedTemplate",
     "InboundMessageEvent",
     "MessageStatusEvent",
@@ -20,10 +29,12 @@ __all__ = [
     "MetaError",
     "MetaPermanentError",
     "MetaTransientError",
+    "QuickReplyButton",
     "SendResult",
     "TemplateSpec",
     "TemplateState",
     "TemplateStatusEvent",
+    "UrlButton",
     "WebhookEvent",
     "parse_webhook",
     "signature_is_valid",
