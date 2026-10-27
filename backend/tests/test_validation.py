@@ -154,3 +154,13 @@ def test_cycle_through_wait_for_reply_allowed() -> None:
         edge("w", "end", "timeout"),
     ]
     assert validate(definition(nodes, edges), APPROVED) == []
+
+
+def test_saved_service_messages_must_exist_when_the_caller_lists_them() -> None:
+    nodes = [node("start", "start"), node("t", "send_text", message_id="svc-1"), node("end", "end")]
+    edges = [edge("start", "t"), edge("t", "end")]
+    assert validate(definition(nodes, edges), APPROVED) == []  # the list is optional
+    assert validate(definition(nodes, edges), APPROVED, {"svc-1"}) == []
+    assert validate(definition(nodes, edges), APPROVED, set()) == [
+        "t: service message svc-1 not found"
+    ]

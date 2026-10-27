@@ -58,8 +58,9 @@ class SendTextInput:
     node_id: str
     visit: int
     contact_id: str
-    text: str  # already rendered by the workflow
+    text: str  # already rendered by the workflow; empty when message_id is set
     if_closed: str = "skip"  # "skip" (go on) or "fail" (end the run) when the window is closed
+    message_id: str | None = None  # a saved service message (templates row of kind service)
 
     @property
     def idempotency_key(self) -> str:
@@ -96,6 +97,10 @@ class MessageSender(Protocol):
     ) -> SendResult: ...
 
     async def send_text(self, to_e164: str, text: str) -> SendResult: ...
+
+    async def send_image(
+        self, to_e164: str, link: str, caption: str | None = None
+    ) -> SendResult: ...
 
 
 class JourneyActivities:
@@ -190,15 +195,24 @@ class JourneyActivities:
         """A service message, insert-first like send_template. The 24-hour window is checked here
         from inbound_messages and again by Meta (code 131047); a closed window skips or fails the
         node as the definition says, never retries."""
+        text, image = request.text, None
+        if request.message_id:
+            saved = await self._template(request.message_id)
+            if saved.get("kind") != "service":
+                raise ApplicationError(
+                    f"{request.message_id} is not a service message", non_retryable=True
+                )
+            text = str(saved["components"].get("body") or "")
+            image = saved["components"].get("image_url")
         message = await self._db.insert_ignore(
             "messages",
             {
                 "run_id": request.run_id,
                 "node_id": request.node_id,
                 "contact_id": request.contact_id,
-                "template_id": None,
+                "template_id": request.message_id,
                 "kind": "text",
-                "text": request.text,
+                "text": text,
                 "idempotency_key": request.idempotency_key,
                 "status": "pending",
             },
@@ -223,7 +237,10 @@ class JourneyActivities:
                 "Meta is not configured (META_SYSTEM_USER_TOKEN)", non_retryable=True
             )
         try:
-            result = await self._meta.send_text(contact.phone_e164, request.text)
+            if image:
+                result = await self._meta.send_image(contact.phone_e164, image, caption=text)
+            else:
+                result = await self._meta.send_text(contact.phone_e164, text)
         except MetaPermanentError as exc:
             if exc.code == RE_ENGAGEMENT_CODE:
                 return await self._window_closed(message["id"], request.if_closed)

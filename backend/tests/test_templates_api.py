@@ -229,3 +229,23 @@ def test_submit_refuses_a_header_image_that_is_not_a_small_jpeg_or_png(
     big = client.post(f"/templates/{template_id}/submit")
     assert big.status_code == 422 and "5 MB" in big.json()["detail"]
     assert meta.uploads == [] and client.get("/templates").json()[0]["status"] == "DRAFT"
+
+
+SERVICE = {"name": "podziekowanie", "language": "pl", "body": "Dziękujemy za odpowiedź!"}
+
+
+def test_service_message_is_ready_at_once_and_never_goes_to_meta(client: TestClient) -> None:
+    row = client.post(
+        "/templates/service", json={**SERVICE, "image_url": "https://x.y/a.png"}
+    ).json()
+    assert (row["kind"], row["status"], row["category"]) == ("service", "READY", "SERVICE")
+    assert row["components"] == {
+        "body": SERVICE["body"],
+        "image_url": "https://x.y/a.png",
+        "variables": [],
+    }
+    assert client.post(f"/templates/{row['id']}/submit").status_code == 409
+    assert client.post(f"/templates/{row['id']}/sync").status_code == 409
+    bad = client.post("/templates/service", json={**SERVICE, "body": "Hej {{first_name}}"})
+    assert bad.status_code == 422
+    assert client.delete(f"/templates/{row['id']}").status_code == 204

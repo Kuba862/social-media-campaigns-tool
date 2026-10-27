@@ -106,3 +106,10 @@ def test_send_text_node_parses_with_skip_as_the_default_policy() -> None:
     assert isinstance(hi, SendTextNode) and hi.if_closed == "skip"
     with pytest.raises(ValidationError):
         JourneyDefinition.model_validate(_text_journey(""))
+
+
+def test_send_text_points_at_a_saved_service_message_or_carries_text() -> None:
+    journey = _text_journey("")
+    journey["nodes"][1] = {"id": "hi", "type": "send_text", "message_id": "svc-1"}
+    hi = JourneyDefinition.model_validate(journey).nodes[1]
+    assert isinstance(hi, SendTextNode) and (hi.text, hi.message_id) == ("", "svc-1")

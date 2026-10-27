@@ -81,6 +81,20 @@ def text_message_payload(to_e164: str, text: str) -> dict[str, Any]:
     }
 
 
+def image_message_payload(to_e164: str, link: str, caption: str | None = None) -> dict[str, Any]:
+    """A free-form image message (with an optional caption); the 24-hour window applies."""
+    image: dict[str, Any] = {"link": link}
+    if caption:
+        image["caption"] = caption
+    return {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to_e164.lstrip("+"),
+        "type": "image",
+        "image": image,
+    }
+
+
 def parse_created_template(data: dict[str, Any]) -> CreatedTemplate:
     return CreatedTemplate(meta_template_id=str(data["id"]), status=data["status"])
 

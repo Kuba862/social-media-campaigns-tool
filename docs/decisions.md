@@ -808,6 +808,24 @@ zalogowany użytkownik, a API go odwiedza (ograniczenie do https, typów obrazó
 próbkę Meta kasuje po ocenie, więc nie jest przechowywana; wideo i dokumenty w nagłówku to ta
 sama ścieżka z innymi typami, na później.
 
+### 49. Wiadomości serwisowe jako zapisana treść obok szablonów (2026-10-27)
+
+Decyzja: tabela `templates` dostaje kolumnę `kind` (`template` albo `service`). Wiadomość
+serwisowa (`POST /templates/service`) to nazwa, język, tekst bez zmiennych (do 4096 znaków, do
+1024 jako podpis pod obrazem) i opcjonalny `image_url`; wiersz od razu ma status `READY`,
+kategorię `SERVICE` i nigdy nie idzie do Mety (zgłoszenie i synchronizacja odpowiadają 409).
+Węzeł `send_text` może zamiast tekstu wskazać `message_id` takiej wiadomości; aktywność
+wczytuje treść, wysyła obraz z podpisem (`send_image`, `type: image` z `link`) albo sam tekst,
+zapisuje wiersz `messages` z `template_id` równym zapisanej wiadomości, a okno 24 godzin i
+polityka `if_closed` działają jak dla tekstu. Publikacja sprawdza, że każde `message_id`
+wskazuje istniejącą wiadomość serwisową, a lista zatwierdzonych szablonów dla `send_template`
+pomija wiersze `service`.
+Powód: właściciel chce tworzyć wiadomości serwisowe w tym samym kreatorze co szablony i używać
+ich w journey; wspólna tabela daje jedną listę, jedną unikalność nazw i jeden przycisk Delete.
+Konsekwencje: migracja `20261027170000_service_messages_kind.sql` (kolumna `kind`, status
+`READY`); panel odróżnia rodzaje po `kind` (kroki 11f–11h); obraz musi być publicznie
+dostępny pod https w chwili wysyłki, bo Meta pobiera go z adresu.
+
 ## Later
 
 - Wartości warunków `branch` są tylko tekstem: `Condition.if` to `dict[str, str]`, a

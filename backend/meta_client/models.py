@@ -113,6 +113,24 @@ class TemplateSpec(Frozen):
         return self
 
 
+class ServiceMessageSpec(Frozen):
+    """A saved service message: plain text (no variables) with an optional image, sent as a
+    free-form message inside the 24-hour window. Meta never reviews it."""
+
+    name: str = Field(pattern=r"^[a-z0-9_]{1,512}$")
+    language: str = Field(pattern=r"^[a-z]{2}(_[A-Z]{2})?$")
+    body: str = Field(min_length=1, max_length=4096)
+    image_url: str | None = Field(default=None, max_length=2000, pattern=r"^https://")
+
+    @model_validator(mode="after")
+    def _plain_text(self) -> Self:
+        if PLACEHOLDER.search(self.body):
+            raise ValueError("a service message has no variables")
+        if self.image_url and len(self.body) > 1024:
+            raise ValueError("a caption under an image has at most 1024 characters")
+        return self
+
+
 class CreatedTemplate(Frozen):
     meta_template_id: str
     status: TemplateStatus

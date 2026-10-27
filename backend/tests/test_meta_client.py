@@ -7,8 +7,19 @@ from typing import Any
 import httpx
 import pytest
 
-from meta_client import MetaClient, MetaPermanentError, MetaTransientError, TemplateSpec
-from meta_client.mapping import message_payload, template_create_payload, text_message_payload
+from meta_client import (
+    MetaClient,
+    MetaPermanentError,
+    MetaTransientError,
+    ServiceMessageSpec,
+    TemplateSpec,
+)
+from meta_client.mapping import (
+    image_message_payload,
+    message_payload,
+    template_create_payload,
+    text_message_payload,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures" / "meta"
 
@@ -292,3 +303,26 @@ async def test_upload_sample_opens_a_session_then_sends_the_bytes() -> None:
     }
     with pytest.raises(MetaPermanentError, match="META_APP_ID"):
         await FakeMeta().client().upload_sample(b"x", "image/png", "x.png")
+
+
+def test_service_message_spec_has_no_variables_and_short_captions() -> None:
+    spec = ServiceMessageSpec(
+        name="podziekowanie", language="pl", body="Dziękujemy!", image_url="https://x.y/a.png"
+    )
+    assert spec.image_url == "https://x.y/a.png"
+    with pytest.raises(ValueError, match="no variables"):
+        ServiceMessageSpec(name="x", language="pl", body="Hej {{first_name}}")
+    with pytest.raises(ValueError, match="1024"):
+        ServiceMessageSpec(name="x", language="pl", body="a" * 1025, image_url="https://x.y/a.png")
+
+
+@pytest.mark.anyio
+async def test_send_image_posts_a_link_with_its_caption() -> None:
+    meta = FakeMeta(body=fixture("message_send.json"))
+    result = await meta.client().send_image("+48600000001", "https://x.y/a.png", caption="Hej")
+    assert meta.last is not None and meta.last.url.path == "/v24.0/PHONE1/messages"
+    sent = meta.sent_json()
+    assert sent["type"] == "image"
+    assert sent["image"] == {"link": "https://x.y/a.png", "caption": "Hej"}
+    assert "caption" not in image_message_payload("+48600000001", "https://x.y/a.png")["image"]
+    assert result.wamid.startswith("wamid.")

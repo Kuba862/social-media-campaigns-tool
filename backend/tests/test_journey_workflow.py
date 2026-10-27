@@ -189,3 +189,19 @@ async def test_send_text_with_the_fail_policy_ends_the_run() -> None:
     db, meta, acts = seeded()
     assert await run_journey(acts, _with_policy("fail")) == "failed"
     assert db.rows("journey_runs")[0]["status"] == "failed"
+
+
+@pytest.mark.anyio
+async def test_send_text_node_can_send_a_saved_service_message() -> None:
+    db, meta, acts = seeded()
+    received = (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+    db.rows("inbound_messages").append(
+        {"contact_id": "c-1", "wamid": "wamid.IN1", "received_at": received}
+    )
+    db.rows("templates").append(
+        {"id": "svc-1", "kind": "service", "status": "READY", "components": {"body": "Dzięki!"}}
+    )
+    nodes = [dict(node) for node in TEXT_DEFINITION["nodes"]]
+    nodes[1] = {"id": "hello", "type": "send_text", "message_id": "svc-1"}
+    assert await run_journey(acts, {**TEXT_DEFINITION, "nodes": nodes}) == "completed"
+    assert meta.sent_texts == [(PHONE, "Dzięki!")]
