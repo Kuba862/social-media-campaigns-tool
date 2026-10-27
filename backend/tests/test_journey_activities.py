@@ -1,11 +1,18 @@
 """Journey activities called directly on fake storage and fake Meta, no Temporal involved."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from temporalio.exceptions import ApplicationError
 
 from meta_client import MetaPermanentError, MetaTransientError
 from tests._fakes import FakeDb, FakeMeta
-from worker.activities.journey import JourneyActivities, RunProgress, SendTemplateInput
+from worker.activities.journey import (
+    JourneyActivities,
+    RunProgress,
+    SendTemplateInput,
+    SendTextInput,
+)
 
 PHONE = "+48600000001"
 
@@ -133,3 +140,68 @@ async def test_record_run_progress_marks_terminal_runs() -> None:
     assert "ended_at" not in run
     await acts.record_run_progress(RunProgress("r-1", "end", status="completed"))
     assert run["status"] == "completed" and run["ended_at"].endswith("+00:00")
+
+
+def text_request(**overrides: object) -> SendTextInput:
+    base = {
+        "run_id": "r-1",
+        "workflow_id": "journey:j1:contact:c-1",
+        "node_id": "n2",
+        "visit": 1,
+        "contact_id": "c-1",
+        "text": "Cześć Ala",
+    }
+    return SendTextInput(**{**base, **overrides})  # type: ignore[arg-type]
+
+
+def inbound(db: FakeDb, minutes_ago: int) -> None:
+    received = (datetime.now(UTC) - timedelta(minutes=minutes_ago)).isoformat()
+    db.rows("inbound_messages").append(
+        {"contact_id": "c-1", "wamid": f"wamid.IN{minutes_ago}", "received_at": received}
+    )
+
+
+@pytest.mark.anyio
+async def test_send_text_sends_once_inside_the_window() -> None:
+    db, meta, acts = seeded()
+    inbound(db, 30)
+    first = await acts.send_text(text_request())
+    second = await acts.send_text(text_request())  # retry or replay after a crash
+    assert (first.status, first.wamid) == ("sent", "wamid.X1") and second == first
+    assert meta.sent_texts == [(PHONE, "Cześć Ala")]
+    row = db.rows("messages")[0]
+    assert (row["kind"], row["text"], row["template_id"], row["status"]) == (
+        "text",
+        "Cześć Ala",
+        None,
+        "sent",
+    )
+    assert len(db.rows("messages")) == 1
+
+
+@pytest.mark.anyio
+async def test_send_text_skips_when_the_window_is_closed() -> None:
+    db, meta, acts = seeded()
+    inbound(db, 25 * 60)  # yesterday: outside the 24 hours
+    result = await acts.send_text(text_request())
+    assert result.status == "skipped" and meta.sent_texts == []
+    assert db.rows("messages")[0]["status"] == "skipped"
+    again = await acts.send_text(text_request())
+    assert again.status == "skipped" and len(db.rows("messages")) == 1
+
+
+@pytest.mark.anyio
+async def test_send_text_fails_when_the_window_is_closed_and_the_node_says_fail() -> None:
+    db, meta, acts = seeded()  # no inbound message at all
+    result = await acts.send_text(text_request(if_closed="fail"))
+    assert result.status == "failed" and "window" in (result.error or "")
+    assert db.rows("messages")[0]["status"] == "failed" and meta.sent_texts == []
+
+
+@pytest.mark.anyio
+async def test_send_text_treats_metas_re_engagement_error_as_a_closed_window() -> None:
+    db, meta, acts = seeded()
+    inbound(db, 10)
+    meta.send_error = MetaPermanentError("Meta 400: (#131047) Re-engagement message", code=131047)
+    assert (await acts.send_text(text_request())).status == "skipped"
+    assert db.rows("messages")[0]["status"] == "skipped"

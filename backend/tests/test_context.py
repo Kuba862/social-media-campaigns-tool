@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from core.context import condition_matches, resolve
+from core.context import condition_matches, render_text, resolve
 
 CTX: dict[str, Any] = {
     "contact": {"first_name": "Ala", "attributes": {"vip": True}},
@@ -40,3 +40,10 @@ def test_condition_on_missing_path_does_not_match() -> None:
 
 def test_empty_condition_matches_everything() -> None:
     assert condition_matches({}, CTX)
+
+
+def test_render_text_fills_placeholders_and_blanks_missing_ones() -> None:
+    text = "Cześć {{contact.first_name}}, {{ reply.button_payload }}!"
+    assert render_text(text, CTX) == "Cześć Ala, YES!"
+    assert render_text("{{contact.last_name}}x", CTX) == "x"
+    assert render_text("no placeholders", CTX) == "no placeholders"

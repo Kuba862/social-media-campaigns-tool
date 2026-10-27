@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from temporalio import activity
@@ -11,11 +11,14 @@ from temporalio.exceptions import ApplicationError
 from core.consent import has_active_consent
 from core.sending import recipient_allowed
 from meta_client import MetaPermanentError, SendResult
+from meta_client.errors import RE_ENGAGEMENT_CODE
 from storage.postgrest import Row, Storage
 
 TERMINAL_RUN_STATUSES = frozenset(
     {"completed", "failed", "cancelled", "skipped_no_consent", "opted_out"}
 )
+SERVICE_WINDOW = timedelta(hours=24)  # Meta's customer service window after an inbound message
+WINDOW_CLOSED = "customer service window is closed (no inbound message in the last 24 hours)"
 
 
 @dataclass(frozen=True)
@@ -47,9 +50,28 @@ class SendTemplateInput:
 
 
 @dataclass(frozen=True)
+class SendTextInput:
+    """A service message for a send_text node; the same idempotency key shape as templates."""
+
+    run_id: str
+    workflow_id: str
+    node_id: str
+    visit: int
+    contact_id: str
+    text: str  # already rendered by the workflow
+    if_closed: str = "skip"  # "skip" (go on) or "fail" (end the run) when the window is closed
+
+    @property
+    def idempotency_key(self) -> str:
+        return f"{self.workflow_id}:{self.node_id}:{self.visit}"
+
+
+@dataclass(frozen=True)
 class SendTemplateResult:
+    """Outcome of send_template and send_text alike."""
+
     message_id: str
-    status: str  # "sent" or "failed"
+    status: str  # "sent", "failed" or "skipped" (text node outside the window)
     wamid: str | None = None
     error: str | None = None
 
@@ -61,12 +83,14 @@ class RunProgress:
     status: str | None = None  # set when the run ends
 
 
-class TemplateSender(Protocol):
-    """The one Meta call the activities need; MetaClient and the test double both satisfy it."""
+class MessageSender(Protocol):
+    """The Meta calls the activities need; MetaClient and the test double both satisfy it."""
 
     async def send_template(
         self, to_e164: str, template_name: str, language: str, body_values: list[str]
     ) -> SendResult: ...
+
+    async def send_text(self, to_e164: str, text: str) -> SendResult: ...
 
 
 class JourneyActivities:
@@ -75,7 +99,7 @@ class JourneyActivities:
     def __init__(
         self,
         db: Storage,
-        meta: TemplateSender | None,
+        meta: MessageSender | None,
         *,
         send_mode: str,
         allowlist: Iterable[str],
@@ -90,6 +114,7 @@ class JourneyActivities:
             self.load_contact,
             self.check_consent,
             self.send_template,
+            self.send_text,
             self.update_contact,
             self.record_run_progress,
         ]
@@ -150,6 +175,54 @@ class JourneyActivities:
         return SendTemplateResult(updated["id"], "sent", wamid=result.wamid)
 
     @activity.defn
+    async def send_text(self, request: SendTextInput) -> SendTemplateResult:
+        """A service message, insert-first like send_template. The 24-hour window is checked here
+        from inbound_messages and again by Meta (code 131047); a closed window skips or fails the
+        node as the definition says, never retries."""
+        message = await self._db.insert_ignore(
+            "messages",
+            {
+                "run_id": request.run_id,
+                "node_id": request.node_id,
+                "contact_id": request.contact_id,
+                "template_id": None,
+                "kind": "text",
+                "text": request.text,
+                "idempotency_key": request.idempotency_key,
+                "status": "pending",
+            },
+            on_conflict="idempotency_key",
+        )
+        if message is None:
+            existing = await self._db.select(
+                "messages", idempotency_key=f"eq.{request.idempotency_key}"
+            )
+            message = existing[0]
+            if message.get("wamid"):
+                return SendTemplateResult(message["id"], "sent", wamid=message["wamid"])
+            if message.get("status") == "skipped":
+                return SendTemplateResult(message["id"], "skipped", error=WINDOW_CLOSED)
+        contact = await self._contact(request.contact_id)
+        if not recipient_allowed(contact.phone_e164, self._send_mode, self._allowlist):
+            return await self._fail(message["id"], "recipient is not in WA_ALLOWED_TEST_RECIPIENTS")
+        if not await self._window_open(request.contact_id):
+            return await self._window_closed(message["id"], request.if_closed)
+        if self._meta is None:
+            raise ApplicationError(
+                "Meta is not configured (META_SYSTEM_USER_TOKEN)", non_retryable=True
+            )
+        try:
+            result = await self._meta.send_text(contact.phone_e164, request.text)
+        except MetaPermanentError as exc:
+            if exc.code == RE_ENGAGEMENT_CODE:
+                return await self._window_closed(message["id"], request.if_closed)
+            return await self._fail(message["id"], str(exc), code=exc.code)
+        updated = await self._db.update(
+            "messages", message["id"], {"wamid": result.wamid, "status": "sent"}
+        )
+        return SendTemplateResult(updated["id"], "sent", wamid=result.wamid)
+
+    @activity.defn
     async def update_contact(self, contact_id: str, changes: dict[str, Any]) -> None:
         """Keys like "attributes.x" merge into the attributes JSON; other keys are columns."""
         contact = await self._contact(contact_id)
@@ -191,6 +264,27 @@ class JourneyActivities:
         if not rows:
             raise ApplicationError(f"template {template_id} not found", non_retryable=True)
         return rows[0]
+
+    async def _window_open(self, contact_id: str) -> bool:
+        """True when the contact wrote to us within the last 24 hours."""
+        rows = await self._db.select(
+            "inbound_messages", contact_id=f"eq.{contact_id}", order="received_at.desc"
+        )
+        stamps = [
+            datetime.fromisoformat(str(r["received_at"])) for r in rows if r.get("received_at")
+        ]
+        if not stamps:
+            return False
+        latest = max(s if s.tzinfo else s.replace(tzinfo=UTC) for s in stamps)
+        return datetime.now(UTC) - latest < SERVICE_WINDOW
+
+    async def _window_closed(self, message_id: str, policy: str) -> SendTemplateResult:
+        if policy == "fail":
+            return await self._fail(message_id, WINDOW_CLOSED)
+        await self._db.update(
+            "messages", message_id, {"status": "skipped", "error": {"message": WINDOW_CLOSED}}
+        )
+        return SendTemplateResult(message_id, "skipped", error=WINDOW_CLOSED)
 
     async def _fail(
         self, message_id: str, error: str, code: int | None = None

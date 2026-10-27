@@ -113,6 +113,7 @@ class FakeMeta:
         self.state: TemplateState | None = TemplateState(meta_template_id="m-1", status="APPROVED")
         self.created: list[TemplateSpec] = []
         self.sent: list[tuple[str, str, str, list[str]]] = []
+        self.sent_texts: list[tuple[str, str]] = []
 
     async def create_template(self, spec: TemplateSpec) -> CreatedTemplate:
         if self.create_error is not None:
@@ -133,6 +134,15 @@ class FakeMeta:
             raise self.send_error
         self.sent.append((to_e164, template_name, language, body_values))
         return SendResult(wamid=f"wamid.T{len(self.sent)}", status="accepted")
+
+    async def send_text(self, to_e164: str, text: str) -> SendResult:
+        if self.transient_failures > 0:
+            self.transient_failures -= 1
+            raise MetaTransientError("Meta 400: (#130429) Rate limit hit", code=130429)
+        if self.send_error is not None:
+            raise self.send_error
+        self.sent_texts.append((to_e164, text))
+        return SendResult(wamid=f"wamid.X{len(self.sent_texts)}", status="accepted")
 
 
 class FakeTemporal:

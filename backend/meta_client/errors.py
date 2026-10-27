@@ -3,6 +3,9 @@
 # Graph API and WhatsApp codes that mean "slow down"; the caller retries with backoff.
 THROTTLING_CODES = frozenset({4, 17, 32, 613, 80007, 130429, 131048, 131056})
 
+# "Re-engagement message": a free-form message more than 24 hours after the customer's last one.
+RE_ENGAGEMENT_CODE = 131047
+
 
 class MetaError(Exception):
     """Base class. `code` is Meta's numeric code when the body carried one, else None."""
